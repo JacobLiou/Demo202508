@@ -1,0 +1,52 @@
+@page "/demoh"
+
+<h3>DemoH</h3>
+@using BootstrapBlazor.Components
+
+<div class="container">
+
+    <table Class="table table-striped">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Age</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in Model)
+            {
+                <tr>
+                    <td>@item.Id</td>
+                    <td>@item.Name</td>
+                    <td>@item.Age</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+
+</div>
+
+
+@* <Table Items="Model">
+    <TableColumn Field="Id" Title="编号"></TableColumn>
+    <TableColumn Field="Name" Title="姓名"></TableColumn>
+    <TableColumn Field="Age" Title="年龄"></TableColumn>
+</Table> *@
+
+@code {
+    private List<Person> Model { get; set; } = new List<Person>
+    {
+        new Person{ Id=1, Name="张三", Age=18 },
+        new Person{ Id=2, Name="李四", Age=20 },
+        new Person{ Id=3, Name="王五", Age=22 },
+    };
+
+    class Person
+    {
+        public int Id { get; set; }
+        public string Name { get; set; }
+        public int Age { get; set; }
+    }
+}

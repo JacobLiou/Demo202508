@@ -1,0 +1,91 @@
+@page "/dividern"
+@rendermode InteractiveServer
+@using BootstrapBlazor.Components
+
+<h3>Divider</h3>
+
+<div Title="基本用法">
+    <p>分割线用于区分内容区域。</p>
+    <Divider></Divider>
+    <p>分割线可以添加文字说明。</p>
+    <Divider>我是分割线</Divider>
+</div>
+
+<div Title="垂直分割线">
+    <Divider Vertical></Divider>
+</div>
+
+
+@* <Table Items="Models" TItem="Person">
+    <TableHeader>
+        <TableColumn Field="Id" Sortable="true">编号</TableColumn>
+        <TableColumn Field="Name" Sortable="true">名称</TableColumn>
+        <TableColumn Field="Age" Sortable="true">年龄</TableColumn>
+    </TableHeader>
+</Table> *@
+
+@* <div>
+    <Table TItem="Person" Items="Models" IsStriped="true" IsBordered="true">
+        <TableColumns>
+            <TableColumn Field="@nameof(Person.Id)" Sortable="true">编号</TableColumn>
+            <TableColumn Field="@nameof(Person.Name)" Sortable="true">名称</TableColumn>
+            <TableColumn Field="@nameof(Person.Age)" Sortable="true">年龄</TableColumn>
+        </TableColumns>
+    </Table>
+</div> *@
+
+<div>
+    <Table TItem="Person"
+           Items="Models"
+           IsStriped="true"
+           IsBordered="true"
+           ShowDefaultButtons="false">
+
+        <TableColumns>
+            <TableColumn @bind-Field="context.Id" Sortable="true">编号</TableColumn>
+            <TableColumn @bind-Field="context.Name" Sortable="true">姓名</TableColumn>
+            <TableColumn @bind-Field="context.Age" Sortable="true">年龄</TableColumn>
+        </TableColumns>
+    </Table>
+</div>
+
+<Button Color="Color.Primary" OnClick="Button_click">
+    加一行
+</Button>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+
+
+@code {
+    [Parameter]
+    public List<Person> Models { get; set; } = new()
+    {
+        new Person(){ Id=1, Name="张三", Age=18 },
+        new Person(){ Id=2, Name="李四", Age=20 },
+        new Person(){ Id=3, Name="王五", Age=22 },
+    };
+
+    private void Button_click()
+    {
+        var newId = Models.Count + 1;
+        Models.Add(new Person() { Id = newId, Name = $"新增用户{newId}", Age = 18 + newId });
+    }
+
+    protected override void OnInitialized()
+    {
+        base.OnInitialized();
+
+        Models = new List<Person>
+        {
+            new Person(){ Id=1, Name="张三", Age=18 },
+            new Person(){ Id=2, Name="李四", Age=20 },
+            new Person(){ Id=3, Name="王五", Age=22 },
+        };
+    }
+
+    private void IncrementCount()
+    {
+        var newId = Models.Count + 1;
+        Models.Add(new Person() { Id = newId, Name = $"新增用户{newId}", Age = 18 + newId });
+    }
+}
