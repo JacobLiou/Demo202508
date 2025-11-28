@@ -46,13 +46,11 @@
     <ErrorReport>prompt</ErrorReport>
     <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
-  
   <PropertyGroup>
     <RootNamespace>ClientA</RootNamespace>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Program.cs" />
-    <Compile Include="PipeClient.cs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />
@@ -60,7 +58,6 @@
     <Reference Include="System.IO" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Xml.Linq" />
-    <Reference Include="Newtonsoft.Json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.csproj">

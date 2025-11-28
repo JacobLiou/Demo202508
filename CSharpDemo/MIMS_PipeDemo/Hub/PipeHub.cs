@@ -1,6 +1,7 @@
 using MIMS.Common;
 using Newtonsoft.Json;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
@@ -14,20 +15,24 @@ namespace MIMS.Hub
     {
         private readonly string _pipeName;
         private readonly List<ClientConnection> _clients = new List<ClientConnection>();
+
         private readonly Dictionary<string, ClientConnection> _clientMap = new Dictionary<string, ClientConnection>();
+
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
 
+        private readonly BlockingCollection<BusMessage> _broadcastQueue = new BlockingCollection<BusMessage>();
+
         public PipeHub(string pipeName)
-        { _pipeName = pipeName; }
+        {
+            _pipeName = pipeName;
+        }
 
         public void Start()
         {
-            var acceptThread = new Thread(AcceptLoop) { IsBackground = true, Name = "PipeAccept" };
-            acceptThread.Start();
+            new Thread(AcceptLoop) { IsBackground = true }.Start();
+            new Thread(MonitorClients) { IsBackground = true }.Start();
+            new Thread(BroadcastLoop) { IsBackground = true }.Start();
             Console.WriteLine($"[Hub] Started on pipe: {_pipeName}");
-
-            var monitorThread = new Thread(MonitorClients) { IsBackground = true, Name = "PipeMonitor" };
-            monitorThread.Start();
         }
 
         private void AcceptLoop()
@@ -68,7 +73,8 @@ namespace MIMS.Hub
                         }
                     }
                 }
-                Thread.Sleep(5000);
+
+                Thread.Sleep(2000);
             }
         }
 
@@ -92,14 +98,23 @@ namespace MIMS.Hub
             }
         }
 
-        public void Broadcast(BusMessage msg)
+        private void BroadcastLoop()
         {
-            lock (_clients)
+            foreach (var msg in _broadcastQueue.GetConsumingEnumerable())
             {
-                foreach (var c in _clients.ToArray())
-                    c.Send(msg);
+                lock (_clients)
+                {
+                    foreach (var c in _clients.ToArray())
+                        c.Send(msg);
+                }
             }
         }
+
+        public void Broadcast(BusMessage msg)
+        {
+            _broadcastQueue.Add(msg);
+        }
+
 
         public void Forward(string targetId, BusMessage msg)
         {

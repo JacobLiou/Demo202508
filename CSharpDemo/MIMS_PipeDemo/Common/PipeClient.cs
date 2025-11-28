@@ -36,7 +36,6 @@ namespace MIMS.Client
 
         private void ConnectLoop()
         {
-            int attempt = 0;
             while (!_cts.IsCancellationRequested)
             {
                 try
@@ -50,19 +49,14 @@ namespace MIMS.Client
                     SendRaw(new BusMessage { Type = "Register", From = _clientId });
                     new Thread(ReadLoop) { IsBackground = true }.Start();
                     new Thread(HeartbeatLoop) { IsBackground = true }.Start();
-                    return; // 成功后退出重连循环
                 }
                 catch
                 {
                     _isConnected = false;
-                    int backoff = Math.Min(30000, (int)Math.Pow(2, Math.Min(++attempt, 10)) * 500);
-                    Console.WriteLine($"[{_clientId}] Connect failed, retry in {backoff}ms...");
-                    Thread.Sleep(backoff);
+                    Thread.Sleep(3000);
                 }
             }
         }
-
-
 
         private void ReadLoop()
         {
