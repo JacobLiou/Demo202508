@@ -32,6 +32,10 @@ namespace MIMS.Common
             new Thread(ConnectLoop) { IsBackground = true, Name = $"{_clientId}-Connect" }.Start();
             new Thread(WriteLoop) { IsBackground = true, Name = $"{_clientId}-Write" }.Start();
             new Thread(MonitorAcks) { IsBackground = true, Name = $"{_clientId}-AckMonitor" }.Start();
+
+            // start a single heartbeat thread that will use the currently connected pipe
+            _HeartbeatLoopThread = new Thread(HeartbeatLoop) { IsBackground = true, Name = $"{_clientId}-Heartbeat" };
+            _HeartbeatLoopThread.Start();
         }
 
         private volatile bool _isConnected = false;
@@ -49,25 +53,33 @@ namespace MIMS.Common
                         continue;
                     }
 
-                    _pipe = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut);
-                    _pipe.Connect(1000);
+                    // Dispose old pipe if any
+                    try { _pipe?.Dispose(); } catch { }
+
+                    _pipe = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut, PipeOptions.Asynchronous);
+                    _pipe.Connect(3000);
                     _pipe.ReadMode = PipeTransmissionMode.Message;
                     _isConnected = true;
                     Console.WriteLine($"[{_clientId}] Connected to Hub.");
 
+                    // Register immediately
                     SendRaw(new BusMessage { Type = "Register", From = _clientId });
 
-                    _ReadLoopThread?.Abort();
-                    _ReadLoopThread = new Thread(ReadLoop) { IsBackground = true };
-                    _ReadLoopThread.Start();
-
-                    _HeartbeatLoopThread?.Abort();
-                    _HeartbeatLoopThread = new Thread(HeartbeatLoop) { IsBackground = true };
-                    _HeartbeatLoopThread.Start();
+                    // start read loop for this connection
+                    if (_ReadLoopThread == null || !_ReadLoopThread.IsAlive)
+                    {
+                        _ReadLoopThread = new Thread(ReadLoop) { IsBackground = true };
+                        _ReadLoopThread.Start();
+                    }
                 }
-                catch
+                catch (Exception ex)
                 {
                     _isConnected = false;
+                    // ensure pipe disposed
+                    try { _pipe?.Dispose(); } catch { }
+                    _pipe = null;
+                    // wait before retry
+                    Console.WriteLine($"[{_clientId}] Connect error: {ex.Message}");
                     Thread.Sleep(2000);
                 }
             }
@@ -80,35 +92,46 @@ namespace MIMS.Common
             {
                 while (!_cts.IsCancellationRequested)
                 {
-                    int read = _pipe.Read(buf, 0, buf.Length);
-                    if (read == 0) throw new IOException("server closed");
-                    string json = Encoding.UTF8.GetString(buf, 0, read);
-                    var msg = JsonConvert.DeserializeObject<BusMessage>(json);
-                    if (msg == null) continue;
+                    if (_pipe == null) { Thread.Sleep(200); continue; }
 
-                    if (msg.Type == "Pong") { _lastPong = DateTime.Now; continue; }
-
-                    if (msg.Type == "ACK" && !string.IsNullOrEmpty(msg.CorrelationId))
+                    using (var ms = new MemoryStream())
                     {
-                        _pendingAcks.TryRemove(msg.CorrelationId, out _);
-                        Console.WriteLine($"[{_clientId}] ACK for {msg.CorrelationId}");
-                        continue;
-                    }
+                        int read = 0;
+                        do
+                        {
+                            read = _pipe.Read(buf, 0, buf.Length);
+                            if (read == 0) throw new IOException("server closed");
+                            ms.Write(buf, 0, read);
+                        } while (!_pipe.IsMessageComplete);
 
-                    if (msg.Type == "Data")
-                    {
-                        Console.WriteLine($"[{_clientId}] Data from {msg.From}: {msg.Payload}");
-                        // business: auto reply
-                        SendTo(msg.From, $"Reply to {msg.From}: got '{msg.Payload}'");
-                        // ACK back to sender
-                        SendRaw(new BusMessage { Type = "ACK", From = _clientId, To = msg.From, CorrelationId = msg.CorrelationId });
-                        continue;
-                    }
+                        string json = Encoding.UTF8.GetString(ms.ToArray());
+                        var msg = JsonConvert.DeserializeObject<BusMessage>(json);
+                        if (msg == null) continue;
 
-                    if (msg.Type == "Reply")
-                    {
-                        Console.WriteLine($"[{_clientId}] Reply from {msg.From}: {msg.Payload}");
-                        continue;
+                        if (msg.Type == "Pong") { _lastPong = DateTime.Now; continue; }
+
+                        if (msg.Type == "ACK" && !string.IsNullOrEmpty(msg.CorrelationId))
+                        {
+                            _pendingAcks.TryRemove(msg.CorrelationId, out _);
+                            Console.WriteLine($"[{_clientId}] ACK for {msg.CorrelationId}");
+                            continue;
+                        }
+
+                        if (msg.Type == "Data")
+                        {
+                            Console.WriteLine($"[{_clientId}] Data from {msg.From}: {msg.Payload}");
+                            // business: auto reply
+                            SendTo(msg.From, $"Reply to {msg.From}: got '{msg.Payload}'");
+                            // ACK back to sender
+                            SendRaw(new BusMessage { Type = "ACK", From = _clientId, To = msg.From, CorrelationId = msg.CorrelationId });
+                            continue;
+                        }
+
+                        if (msg.Type == "Reply")
+                        {
+                            Console.WriteLine($"[{_clientId}] Reply from {msg.From}: {msg.Payload}");
+                            continue;
+                        }
                     }
                 }
             }
@@ -123,7 +146,10 @@ namespace MIMS.Common
         {
             while (!_cts.IsCancellationRequested)
             {
-                SendRaw(new BusMessage { Type = "Ping", From = _clientId });
+                if (_isConnected)
+                {
+                    SendRaw(new BusMessage { Type = "Ping", From = _clientId });
+                }
                 Thread.Sleep(5000);
                 if (_lastPong != DateTime.MinValue && (DateTime.Now - _lastPong).TotalSeconds > 30)
                 {
@@ -140,11 +166,20 @@ namespace MIMS.Common
                 try
                 {
                     var msg = _sendQueue.Take(_cts.Token);
-                    SendRaw(msg);
-                    if (msg.Type == "Data" || msg.Type == "Reply")
+                    var sent = SendRaw(msg);
+                    if (!sent)
                     {
-                        if (string.IsNullOrEmpty(msg.CorrelationId)) msg.CorrelationId = Guid.NewGuid().ToString();
-                        _pendingAcks[msg.CorrelationId] = new PendingAck(msg, DateTime.Now);
+                        // re-enqueue and wait before retrying to avoid tight loop
+                        Enqueue(msg);
+                        Thread.Sleep(500);
+                    }
+                    else
+                    {
+                        if (msg.Type == "Data" || msg.Type == "Reply")
+                        {
+                            if (string.IsNullOrEmpty(msg.CorrelationId)) msg.CorrelationId = Guid.NewGuid().ToString();
+                            _pendingAcks[msg.CorrelationId] = new PendingAck(msg, DateTime.Now);
+                        }
                     }
                 }
                 catch (OperationCanceledException) { break; }
@@ -172,13 +207,12 @@ namespace MIMS.Common
             }
         }
 
-        private void SendRaw(BusMessage msg)
+        private bool SendRaw(BusMessage msg)
         {
             if (_pipe == null || !_pipe.IsConnected)
             {
                 Console.WriteLine($"[{_clientId}] Pipe not connected, re-enqueue message.");
-                Enqueue(msg);
-                return;
+                return false;
             }
 
             try
@@ -188,13 +222,13 @@ namespace MIMS.Common
                 _pipe.Write(data, 0, data.Length);
                 _pipe.Flush();
                 Console.WriteLine($"[{_clientId}] → {(msg.To ?? "*")} Type={msg.Type} Corr={msg.CorrelationId ?? "-"}");
+                return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[{_clientId}] SendRaw failed: {ex.Message}");
                 TryReconnect();
-                // after reconnect, retry
-                Enqueue(msg);
+                return false;
             }
         }
 
@@ -202,7 +236,9 @@ namespace MIMS.Common
         {
             try
             {
-                _pipe?.Dispose();
+                _isConnected = false;
+                try { _pipe?.Dispose(); } catch { }
+                _pipe = null;
                 Console.WriteLine($"[{_clientId}] Dispose");
             }
             catch

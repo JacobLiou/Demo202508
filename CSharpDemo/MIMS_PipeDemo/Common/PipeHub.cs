@@ -1,4 +1,3 @@
-using MIMS.Common;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
@@ -32,7 +31,6 @@ namespace MIMS.Common
             new Thread(AcceptLoop) { IsBackground = true }.Start();
             new Thread(MonitorClients) { IsBackground = true }.Start();
             new Thread(BroadcastLoop) { IsBackground = true }.Start();
-            new Thread(HeartbeatLoop) { IsBackground = true }.Start();
             Console.WriteLine($"[Hub] Started on pipe: {_pipeName}");
         }
 
@@ -80,6 +78,8 @@ namespace MIMS.Common
                 {
                     var server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut, 4,
                         PipeTransmissionMode.Message, PipeOptions.Asynchronous);
+                    // ensure server reads in message mode
+                    server.ReadMode = PipeTransmissionMode.Message;
                     server.WaitForConnection();
                     var conn = new ClientConnection(server, this);
                     lock (_clients) _clients.Add(conn);
@@ -154,15 +154,6 @@ namespace MIMS.Common
             }
         }
 
-        private void HeartbeatLoop()
-        {
-            lock (_clients)
-            {
-                foreach (var c in _clients.ToArray())
-                    c.Send(new BusMessage { Type = "Data", From = "Hub", Payload = "Ping" });
-            }
-        }
-
         private void RemoveClient(ClientConnection c)
         {
             lock (_clients) _clients.Remove(c);
@@ -198,36 +189,45 @@ namespace MIMS.Common
                 {
                     while (true)
                     {
-                        int read = _server.Read(buf, 0, buf.Length);
-                        if (read == 0) break; // client closed
-                        string json = Encoding.UTF8.GetString(buf, 0, read);
-                        var msg = JsonConvert.DeserializeObject<BusMessage>(json);
-                        if (msg == null) continue;
+                        using (var ms = new MemoryStream())
+                        {
+                            int read = 0;
+                            do
+                            {
+                                read = _server.Read(buf, 0, buf.Length);
+                                if (read == 0) throw new IOException("client closed");
+                                ms.Write(buf, 0, read);
+                            } while (!_server.IsMessageComplete);
 
-                        if (msg.Type == "Ping")
-                        {
-                            LastHeartbeat = DateTime.Now;
-                            var pong = new BusMessage { Type = "Pong", To = msg.From };
-                            Send(pong);
-                            continue;
+                            string json = Encoding.UTF8.GetString(ms.ToArray());
+                            var msg = JsonConvert.DeserializeObject<BusMessage>(json);
+                            if (msg == null) continue;
+
+                            if (msg.Type == "Ping")
+                            {
+                                LastHeartbeat = DateTime.Now;
+                                var pong = new BusMessage { Type = "Pong", To = msg.From };
+                                Send(pong);
+                                continue;
+                            }
+                            if (msg.Type == "Register" && !string.IsNullOrEmpty(msg.From))
+                            {
+                                _hub.RegisterClient(msg.From, this);
+                                continue;
+                            }
+                            if (msg.Type == "ACK" && !string.IsNullOrEmpty(msg.To))
+                            {
+                                _hub.Forward(msg.To, msg);
+                                continue;
+                            }
+                            if (msg.Type == "Data" || msg.Type == "Reply")
+                            {
+                                if (!string.IsNullOrEmpty(msg.To)) _hub.Forward(msg.To, msg);
+                                else _hub.Broadcast(msg);
+                                continue;
+                            }
+                            // Unknown types ignored
                         }
-                        if (msg.Type == "Register" && !string.IsNullOrEmpty(msg.From))
-                        {
-                            _hub.RegisterClient(msg.From, this);
-                            continue;
-                        }
-                        if (msg.Type == "ACK" && !string.IsNullOrEmpty(msg.To))
-                        {
-                            _hub.Forward(msg.To, msg);
-                            continue;
-                        }
-                        if (msg.Type == "Data" || msg.Type == "Reply")
-                        {
-                            if (!string.IsNullOrEmpty(msg.To)) _hub.Forward(msg.To, msg);
-                            else _hub.Broadcast(msg);
-                            continue;
-                        }
-                        // Unknown types ignored
                     }
                 }
                 catch (IOException ioEx)
