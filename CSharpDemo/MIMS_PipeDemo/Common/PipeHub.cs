@@ -39,27 +39,6 @@ namespace MIMS.Common
             _broadcastQueue.Add(msg);
         }
 
-        public bool SendToClient(string clientId, BusMessage msg)
-        {
-            ClientConnection target = null;
-            lock (_clientMap) _clientMap.TryGetValue(clientId, out target);
-            if (target == null)
-            {
-                Console.WriteLine($"[Hub] Target {clientId} not found.");
-                return false;
-            }
-            try
-            {
-                target.Send(msg);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Hub] SendToClient error ({clientId}): {ex.Message}");
-                return false;
-            }
-        }
-
         public void Forward(string targetId, BusMessage msg)
         {
             ClientConnection target = null;
@@ -76,13 +55,14 @@ namespace MIMS.Common
             {
                 try
                 {
-                    var server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut, 4,
+                    var server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut, 5,
                         PipeTransmissionMode.Message, PipeOptions.Asynchronous);
                     // ensure server reads in message mode
                     server.ReadMode = PipeTransmissionMode.Message;
                     server.WaitForConnection();
                     var conn = new ClientConnection(server, this);
-                    lock (_clients) _clients.Add(conn);
+                    lock (_clients) 
+                        _clients.Add(conn);
                     conn.Start();
                     Console.WriteLine($"[Hub] Client connected. total={_clients.Count}");
                 }
@@ -222,8 +202,8 @@ namespace MIMS.Common
                             }
                             if (msg.Type == "Data" || msg.Type == "Reply")
                             {
-                                if (!string.IsNullOrEmpty(msg.To)) _hub.Forward(msg.To, msg);
-                                else _hub.Broadcast(msg);
+                                if (!string.IsNullOrEmpty(msg.To))
+                                    _hub.Forward(msg.To, msg);
                                 continue;
                             }
                             // Unknown types ignored

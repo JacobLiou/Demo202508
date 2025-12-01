@@ -15,7 +15,7 @@ namespace MIMS.Common
         private NamedPipeClientStream _pipe;
         private readonly CancellationTokenSource _cts = new CancellationTokenSource();
         private readonly BlockingCollection<BusMessage> _sendQueue = new BlockingCollection<BusMessage>(new ConcurrentQueue<BusMessage>(), 2000);
-        private readonly ConcurrentDictionary<string, PendingAck> _pendingAcks = new ConcurrentDictionary<string, PendingAck>();
+        //private readonly ConcurrentDictionary<string, PendingAck> _pendingAcks = new ConcurrentDictionary<string, PendingAck>();
         private DateTime _lastPong = DateTime.MinValue;
 
         private Thread _ReadLoopThread;
@@ -31,7 +31,7 @@ namespace MIMS.Common
         {
             new Thread(ConnectLoop) { IsBackground = true, Name = $"{_clientId}-Connect" }.Start();
             new Thread(WriteLoop) { IsBackground = true, Name = $"{_clientId}-Write" }.Start();
-            new Thread(MonitorAcks) { IsBackground = true, Name = $"{_clientId}-AckMonitor" }.Start();
+            //new Thread(MonitorAcks) { IsBackground = true, Name = $"{_clientId}-AckMonitor" }.Start();
 
             // start a single heartbeat thread that will use the currently connected pipe
             _HeartbeatLoopThread = new Thread(HeartbeatLoop) { IsBackground = true, Name = $"{_clientId}-Heartbeat" };
@@ -110,20 +110,20 @@ namespace MIMS.Common
 
                         if (msg.Type == "Pong") { _lastPong = DateTime.Now; continue; }
 
-                        if (msg.Type == "ACK" && !string.IsNullOrEmpty(msg.CorrelationId))
-                        {
-                            _pendingAcks.TryRemove(msg.CorrelationId, out _);
-                            Console.WriteLine($"[{_clientId}] ACK for {msg.CorrelationId}");
-                            continue;
-                        }
+                        //if (msg.Type == "ACK" && !string.IsNullOrEmpty(msg.CorrelationId))
+                        //{
+                        //    _pendingAcks.TryRemove(msg.CorrelationId, out _);
+                        //    Console.WriteLine($"[{_clientId}] ACK for {msg.CorrelationId}");
+                        //    continue;
+                        //}
 
                         if (msg.Type == "Data")
                         {
                             Console.WriteLine($"[{_clientId}] Data from {msg.From}: {msg.Payload}");
                             // business: auto reply
-                            SendTo(msg.From, $"Reply to {msg.From}: got '{msg.Payload}'");
-                            // ACK back to sender
-                            SendRaw(new BusMessage { Type = "ACK", From = _clientId, To = msg.From, CorrelationId = msg.CorrelationId });
+                            //SendTo(msg.From, $"Reply to {msg.From}: got '{msg.Payload}'");
+                            //// ACK back to sender
+                            //SendRaw(new BusMessage { Type = "ACK", From = _clientId, To = msg.From, CorrelationId = msg.CorrelationId });
                             continue;
                         }
 
@@ -178,7 +178,7 @@ namespace MIMS.Common
                         if (msg.Type == "Data" || msg.Type == "Reply")
                         {
                             if (string.IsNullOrEmpty(msg.CorrelationId)) msg.CorrelationId = Guid.NewGuid().ToString();
-                            _pendingAcks[msg.CorrelationId] = new PendingAck(msg, DateTime.Now);
+                            //_pendingAcks[msg.CorrelationId] = new PendingAck(msg, DateTime.Now);
                         }
                     }
                 }
@@ -190,22 +190,22 @@ namespace MIMS.Common
             }
         }
 
-        private void MonitorAcks()
-        {
-            while (!_cts.IsCancellationRequested)
-            {
-                foreach (var kvp in _pendingAcks.ToArray())
-                {
-                    if ((DateTime.Now - kvp.Value.Timestamp).TotalSeconds > 10)
-                    {
-                        Console.WriteLine($"[{_clientId}] Resend due to ACK timeout: {kvp.Key}");
-                        Enqueue(kvp.Value.Message); // re-enqueue for resend
-                        _pendingAcks[kvp.Key] = new PendingAck(kvp.Value.Message, DateTime.Now);
-                    }
-                }
-                Thread.Sleep(2000);
-            }
-        }
+        //private void MonitorAcks()
+        //{
+        //    while (!_cts.IsCancellationRequested)
+        //    {
+        //        foreach (var kvp in _pendingAcks.ToArray())
+        //        {
+        //            if ((DateTime.Now - kvp.Value.Timestamp).TotalSeconds > 10)
+        //            {
+        //                Console.WriteLine($"[{_clientId}] Resend due to ACK timeout: {kvp.Key}");
+        //                Enqueue(kvp.Value.Message); // re-enqueue for resend
+        //                _pendingAcks[kvp.Key] = new PendingAck(kvp.Value.Message, DateTime.Now);
+        //            }
+        //        }
+        //        Thread.Sleep(2000);
+        //    }
+        //}
 
         private bool SendRaw(BusMessage msg)
         {
