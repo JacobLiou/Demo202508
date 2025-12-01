@@ -1,5 +1,4 @@
 using MIMS.Common;
-using MIMS.Hub;
 using System;
 
 internal class Program

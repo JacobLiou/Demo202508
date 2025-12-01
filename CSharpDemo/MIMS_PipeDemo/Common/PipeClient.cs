@@ -1,4 +1,3 @@
-using MIMS.Common;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Concurrent;
@@ -7,7 +6,7 @@ using System.IO.Pipes;
 using System.Text;
 using System.Threading;
 
-namespace MIMS.Client
+namespace MIMS.Common
 {
     public class PipeClient : IDisposable
     {
@@ -18,6 +17,9 @@ namespace MIMS.Client
         private readonly BlockingCollection<BusMessage> _sendQueue = new BlockingCollection<BusMessage>(new ConcurrentQueue<BusMessage>(), 2000);
         private readonly ConcurrentDictionary<string, PendingAck> _pendingAcks = new ConcurrentDictionary<string, PendingAck>();
         private DateTime _lastPong = DateTime.MinValue;
+
+        private Thread _ReadLoopThread;
+        private Thread _HeartbeatLoopThread;
 
         public PipeClient(string pipeName, string clientId)
         {
@@ -40,20 +42,33 @@ namespace MIMS.Client
             {
                 try
                 {
+                    if (_pipe != null && _pipe.IsConnected)
+                    {
+                        _isConnected = true;
+                        Thread.Sleep(2000);
+                        continue;
+                    }
+
                     _pipe = new NamedPipeClientStream(".", _pipeName, PipeDirection.InOut);
-                    _pipe.Connect(3000);
+                    _pipe.Connect(1000);
                     _pipe.ReadMode = PipeTransmissionMode.Message;
                     _isConnected = true;
                     Console.WriteLine($"[{_clientId}] Connected to Hub.");
 
                     SendRaw(new BusMessage { Type = "Register", From = _clientId });
-                    new Thread(ReadLoop) { IsBackground = true }.Start();
-                    new Thread(HeartbeatLoop) { IsBackground = true }.Start();
+
+                    _ReadLoopThread?.Abort();
+                    _ReadLoopThread = new Thread(ReadLoop) { IsBackground = true };
+                    _ReadLoopThread.Start();
+
+                    _HeartbeatLoopThread?.Abort();
+                    _HeartbeatLoopThread = new Thread(HeartbeatLoop) { IsBackground = true };
+                    _HeartbeatLoopThread.Start();
                 }
                 catch
                 {
                     _isConnected = false;
-                    Thread.Sleep(3000);
+                    Thread.Sleep(2000);
                 }
             }
         }
@@ -110,9 +125,9 @@ namespace MIMS.Client
             {
                 SendRaw(new BusMessage { Type = "Ping", From = _clientId });
                 Thread.Sleep(5000);
-                if (_lastPong != DateTime.MinValue && (DateTime.Now - _lastPong).TotalSeconds > 20)
+                if (_lastPong != DateTime.MinValue && (DateTime.Now - _lastPong).TotalSeconds > 30)
                 {
-                    Console.WriteLine($"[{_clientId}] Heartbeat lost (>20s), reconnecting...");
+                    Console.WriteLine($"[{_clientId}] Heartbeat lost (>30s), reconnecting...");
                     TryReconnect();
                 }
             }
@@ -188,9 +203,12 @@ namespace MIMS.Client
             try
             {
                 _pipe?.Dispose();
+                Console.WriteLine($"[{_clientId}] Dispose");
             }
-            catch { }
-            // ConnectLoop will run again and re-register
+            catch
+            {
+                Console.WriteLine($"[{_clientId}] Dispose Error");
+            }
         }
 
         public void Enqueue(BusMessage msg)

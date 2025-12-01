@@ -9,7 +9,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 
-namespace MIMS.Hub
+namespace MIMS.Common
 {
     public class PipeHub
     {
@@ -32,7 +32,44 @@ namespace MIMS.Hub
             new Thread(AcceptLoop) { IsBackground = true }.Start();
             new Thread(MonitorClients) { IsBackground = true }.Start();
             new Thread(BroadcastLoop) { IsBackground = true }.Start();
+            new Thread(HeartbeatLoop) { IsBackground = true }.Start();
             Console.WriteLine($"[Hub] Started on pipe: {_pipeName}");
+        }
+
+        public void Broadcast(BusMessage msg)
+        {
+            _broadcastQueue.Add(msg);
+        }
+
+        public bool SendToClient(string clientId, BusMessage msg)
+        {
+            ClientConnection target = null;
+            lock (_clientMap) _clientMap.TryGetValue(clientId, out target);
+            if (target == null)
+            {
+                Console.WriteLine($"[Hub] Target {clientId} not found.");
+                return false;
+            }
+            try
+            {
+                target.Send(msg);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Hub] SendToClient error ({clientId}): {ex.Message}");
+                return false;
+            }
+        }
+
+        public void Forward(string targetId, BusMessage msg)
+        {
+            ClientConnection target = null;
+            lock (_clientMap) _clientMap.TryGetValue(targetId, out target);
+            if (target != null)
+                target.Send(msg);
+            else
+                Console.WriteLine($"[Hub] Target {targetId} not found.");
         }
 
         private void AcceptLoop()
@@ -41,7 +78,7 @@ namespace MIMS.Hub
             {
                 try
                 {
-                    var server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut, 20,
+                    var server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut, 4,
                         PipeTransmissionMode.Message, PipeOptions.Asynchronous);
                     server.WaitForConnection();
                     var conn = new ClientConnection(server, this);
@@ -65,7 +102,7 @@ namespace MIMS.Hub
                 {
                     foreach (var c in _clients.ToArray())
                     {
-                        if ((DateTime.Now - c.LastHeartbeat).TotalSeconds > 20)
+                        if ((DateTime.Now - c.LastHeartbeat).TotalSeconds > 30)
                         {
                             Console.WriteLine($"[Hub] Heartbeat lost for {c.ClientId ?? "<unknown>"}, disconnecting.");
                             c.Dispose();
@@ -82,6 +119,13 @@ namespace MIMS.Hub
         {
             lock (_clientMap)
             {
+                if (_clientMap.TryGetValue(clientId, out var oldConn))
+                {
+                    Console.WriteLine($"[Hub] Duplicate registration for {clientId}, closing old connection.");
+                    oldConn.Dispose();
+                    RemoveClient(oldConn);
+                }
+
                 _clientMap[clientId] = conn;
                 conn.ClientId = clientId;
                 Console.WriteLine($"[Hub] Registered {clientId}");
@@ -110,23 +154,16 @@ namespace MIMS.Hub
             }
         }
 
-        public void Broadcast(BusMessage msg)
+        private void HeartbeatLoop()
         {
-            _broadcastQueue.Add(msg);
+            lock (_clients)
+            {
+                foreach (var c in _clients.ToArray())
+                    c.Send(new BusMessage { Type = "Data", From = "Hub", Payload = "Ping" });
+            }
         }
 
-
-        public void Forward(string targetId, BusMessage msg)
-        {
-            ClientConnection target = null;
-            lock (_clientMap) _clientMap.TryGetValue(targetId, out target);
-            if (target != null)
-                target.Send(msg);
-            else
-                Console.WriteLine($"[Hub] Target {targetId} not found.");
-        }
-
-        internal void RemoveClient(ClientConnection c)
+        private void RemoveClient(ClientConnection c)
         {
             lock (_clients) _clients.Remove(c);
             Unregister(c);
@@ -150,7 +187,9 @@ namespace MIMS.Hub
             }
 
             public void Start()
-            { _readThread.Start(); }
+            {
+                _readThread.Start();
+            }
 
             private void ReadLoop()
             {

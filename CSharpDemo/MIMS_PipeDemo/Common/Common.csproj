@@ -69,6 +69,7 @@
     <Compile Include="BusMessage.cs" />
     <Compile Include="PendingAck.cs" />
     <Compile Include="PipeClient.cs" />
+    <Compile Include="PipeHub.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
