@@ -55,7 +55,7 @@ namespace MIMS.Common
             {
                 try
                 {
-                    var server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut, 5,
+                    var server = new NamedPipeServerStream(_pipeName, PipeDirection.InOut, 10,
                         PipeTransmissionMode.Message, PipeOptions.Asynchronous);
                     // ensure server reads in message mode
                     server.ReadMode = PipeTransmissionMode.Message;
@@ -82,7 +82,7 @@ namespace MIMS.Common
                 {
                     foreach (var c in _clients.ToArray())
                     {
-                        if ((DateTime.Now - c.LastHeartbeat).TotalSeconds > 30)
+                        if ((DateTime.Now - c.LastHeartbeat).TotalSeconds > 60)
                         {
                             Console.WriteLine($"[Hub] Heartbeat lost for {c.ClientId ?? "<unknown>"}, disconnecting.");
                             c.Dispose();
@@ -175,7 +175,8 @@ namespace MIMS.Common
                             do
                             {
                                 read = _server.Read(buf, 0, buf.Length);
-                                if (read == 0) throw new IOException("client closed");
+                                if (read == 0) 
+                                    throw new IOException("client closed");
                                 ms.Write(buf, 0, read);
                             } while (!_server.IsMessageComplete);
 
@@ -183,6 +184,7 @@ namespace MIMS.Common
                             var msg = JsonConvert.DeserializeObject<BusMessage>(json);
                             if (msg == null) continue;
 
+                            Console.WriteLine($"[Hub] Read Message {json}");
                             if (msg.Type == "Ping")
                             {
                                 LastHeartbeat = DateTime.Now;

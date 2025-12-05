@@ -151,9 +151,9 @@ namespace MIMS.Common
                     SendRaw(new BusMessage { Type = "Ping", From = _clientId });
                 }
                 Thread.Sleep(5000);
-                if (_lastPong != DateTime.MinValue && (DateTime.Now - _lastPong).TotalSeconds > 30)
+                if (_lastPong != DateTime.MinValue && (DateTime.Now - _lastPong).TotalSeconds > 60)
                 {
-                    Console.WriteLine($"[{_clientId}] Heartbeat lost (>30s), reconnecting...");
+                    Console.WriteLine($"[{_clientId}] Heartbeat lost (>60s), reconnecting...");
                     TryReconnect();
                 }
             }
