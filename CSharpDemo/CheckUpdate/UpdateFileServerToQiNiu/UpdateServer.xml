@@ -1,0 +1,24 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<Config>
+  <!--通过此url，访问文件，注意最后“/”-->
+  <ServerURL>http://192.168.1.188:8056/file/updatefile/</ServerURL>
+  <ServerFile>UpdateServer.xml</ServerFile>
+  <!--安装包路径-->
+  <Setup Version="0">http://192.168.1.188:8056/file/updatefile/Setup.exe</Setup>
+  <File>
+    <!--文件列表-->
+    <Item Name="Apply.exe.config" Version="1" Date="2014-09-04"></Item>
+  </File>
+  <Version>
+    <!--Version=显示版本号，VersionValue为版本号具体指-->
+    <Item Version="1.0" VersionValue="1">
+      <!--更新程序显示的说明-->
+      <ReleaseNote>
+        1.0版本更新：
+        * 修复部分缺陷, 提高稳定性；
+      </ReleaseNote>
+      <!--是否强制更新-->
+      <IsMustUpdate>True</IsMustUpdate>
+    </Item>
+  </Version>
+</Config>

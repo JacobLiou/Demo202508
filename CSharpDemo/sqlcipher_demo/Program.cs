@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using Microsoft.Data.Sqlite;
 using SQLitePCL;
 
@@ -17,6 +15,18 @@ class Program
         using var conn = new SqliteConnection($"Data Source={dbPath};");
         conn.Open();
 
+
+
+        // A. 检查是否真的加载了 SQLCipher
+        using (var check = conn.CreateCommand())
+        {
+            check.CommandText = "PRAGMA cipher_version;";
+            var v = check.ExecuteScalar();
+            Console.WriteLine($"cipher_version = {v ?? "(null)"}");
+            if (v == null) throw new Exception("没有加载 SQLCipher 原生库。请检查 NuGet、Batteries_V2.Init() 和发布输出的原生 DLL。");
+        }
+
+        // B. 先设置密钥（第一条语句，不能用参数化）
         using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = $"PRAGMA key = '{passphrase.Replace("'", "''")}';";
