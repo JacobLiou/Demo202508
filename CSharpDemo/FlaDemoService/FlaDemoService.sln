@@ -9,8 +9,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlaQueueServer", "FlaQueueS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlaClientMock", "FlaClientMock\FlaClientMock.csproj", "{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlaQueueServerWinform", "FlaQueueServerWinform\FlaQueueServerWinform.csproj", "{C9327FE9-8B49-4D7E-C932-0EC025B8E306}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -29,10 +27,6 @@ Global
 		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C9327FE9-8B49-4D7E-C932-0EC025B8E306}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C9327FE9-8B49-4D7E-C932-0EC025B8E306}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C9327FE9-8B49-4D7E-C932-0EC025B8E306}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C9327FE9-8B49-4D7E-C932-0EC025B8E306}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

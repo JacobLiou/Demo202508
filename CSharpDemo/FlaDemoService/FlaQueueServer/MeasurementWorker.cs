@@ -1,4 +1,5 @@
-﻿using System.Threading.Channels;
+﻿using Serilog;
+using System.Threading.Channels;
 
 namespace FlaQueueServer
 {
@@ -7,10 +8,22 @@ namespace FlaQueueServer
         private readonly Channel<MeasureTask> _queue;
         private readonly TcpServer _server;
         private readonly FlaInstrumentAdapter _adapter;
+        private readonly OpticalSwitchController _switch;
         private readonly SemaphoreSlim _deviceLock = new(1, 1); // 共享设备串行
 
-        public MeasurementWorker(Channel<MeasureTask> queue, TcpServer server, FlaInstrumentAdapter adapter)
-        { _queue = queue; _server = server; _adapter = adapter; }
+        private readonly ILogger Log = Serilog.Log.ForContext<MeasurementWorker>();
+
+        public MeasurementWorker(
+            Channel<MeasureTask> queue,
+            TcpServer server,
+            FlaInstrumentAdapter adapter,
+            OpticalSwitchController sw)
+        {
+            _queue = queue;
+            _server = server;
+            _adapter = adapter;
+            _switch = sw;
+        }
 
         public async Task StartAsync(CancellationToken ct)
         {
@@ -25,6 +38,11 @@ namespace FlaQueueServer
                 try
                 {
                     await _server.SendResultAsync(task, new StatusMessage("status", task.TaskId, "running"), ct);
+
+                    // 切光开关到指定通道（RS232）
+                    await _switch.SwitchToOutputAsync(task.Channel, ct);
+                    Log.Information("Switch set to {Channel} for task {TaskId}", task.Channel, task.TaskId);
+
 
                     // 连接设备（握手 OCI）
                     await _adapter.ConnectAsync(ct);
