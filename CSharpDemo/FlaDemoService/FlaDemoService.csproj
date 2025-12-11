@@ -8,12 +8,16 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="FlaClientMock\**" />
+    <Compile Remove="FlaQueueServerWinform\**" />
     <Compile Remove="FlaQueueServer\**" />
     <Content Remove="FlaClientMock\**" />
+    <Content Remove="FlaQueueServerWinform\**" />
     <Content Remove="FlaQueueServer\**" />
     <EmbeddedResource Remove="FlaClientMock\**" />
+    <EmbeddedResource Remove="FlaQueueServerWinform\**" />
     <EmbeddedResource Remove="FlaQueueServer\**" />
     <None Remove="FlaClientMock\**" />
+    <None Remove="FlaQueueServerWinform\**" />
     <None Remove="FlaQueueServer\**" />
   </ItemGroup>
   <ItemGroup>

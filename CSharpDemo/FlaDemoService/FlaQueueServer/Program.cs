@@ -1,39 +1,67 @@
 using FlaQueueServer;
 using System.Threading.Channels;
+using Serilog;
+using Serilog.Events;
 
 // =============================================
 // FlaQueueServer_FLA - Console + TCP + 排队 + 真实设备(FLA)协议
 // .NET 8 Console
 // =============================================
+Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "logs"));
 
-var listenPort = 5600; // 客户端网关端口
-var deviceHost = "192.168.1.1"; // FLA设备IP（可改）
-var devicePort = 4300;          // FLA远控端口
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .Enrich.WithThreadId()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] ({ThreadId}) {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(Path.Combine("logs", "server-.log"),
+                  outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] ({ThreadId}) {Message:lj}{NewLine}{Exception}",
+                  rollingInterval: RollingInterval.Day,
+                  retainedFileCountLimit: 14,
+                  shared: true)
+    .CreateLogger();
 
-// 命令行参数：listenPort deviceHost devicePort
-if (args.Length > 0 && int.TryParse(args[0], out var p)) listenPort = p;
-if (args.Length > 1 && !string.IsNullOrWhiteSpace(args[1])) deviceHost = args[1];
-if (args.Length > 2 && int.TryParse(args[2], out var dp)) devicePort = dp;
 
-var cts = new CancellationTokenSource();
-Console.CancelKeyPress += (s, e) =>
+try
 {
-    e.Cancel = true; cts.Cancel(); Console.WriteLine("\n[Server] Shutting down...");
-};
+    var listenPort = 5600; // 客户端网关端口
+    var deviceHost = "192.168.1.1"; // FLA设备IP（可改）
+    var devicePort = 4300;          // FLA远控端口
 
-var queue = Channel.CreateUnbounded<MeasureTask>(new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
-var server = new TcpServer(listenPort, queue);
-var adapter = new FlaInstrumentAdapter(deviceHost, devicePort);
-var worker = new MeasurementWorker(queue, server, adapter);
+    // 命令行参数：listenPort deviceHost devicePort
+    if (args.Length > 0 && int.TryParse(args[0], out var p)) listenPort = p;
+    if (args.Length > 1 && !string.IsNullOrWhiteSpace(args[1])) deviceHost = args[1];
+    if (args.Length > 2 && int.TryParse(args[2], out var dp)) devicePort = dp;
 
-// 启动服务与后台Worker
-var serverTask = server.StartAsync(cts.Token);
-var workerTask = worker.StartAsync(cts.Token);
+    var cts = new CancellationTokenSource();
+    Console.CancelKeyPress += (s, e) =>
+    {
+        e.Cancel = true; cts.Cancel(); Console.WriteLine("\n[Server] Shutting down...");
+    };
 
-Console.WriteLine($"[Server] Started on tcp://0.0.0.0:{listenPort} | FLA @ {deviceHost}:{devicePort}");
-Console.WriteLine("[Server] Press Ctrl+C to exit.");
+    var queue = Channel.CreateUnbounded<MeasureTask>(new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
+    var server = new TcpServer(listenPort, queue);
+    var adapter = new FlaInstrumentAdapter(deviceHost, devicePort);
+    var worker = new MeasurementWorker(queue, server, adapter);
 
-await Task.WhenAll(serverTask, workerTask);
+    // 启动服务与后台Worker
+    var serverTask = server.StartAsync(cts.Token);
+    var workerTask = worker.StartAsync(cts.Token);
+
+    Console.WriteLine($"[Server] Started on tcp://0.0.0.0:{listenPort} | FLA @ {deviceHost}:{devicePort}");
+    Console.WriteLine("[Server] Press Ctrl+C to exit.");
+
+    await Task.WhenAll(serverTask, workerTask);
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Server crashed");
+}
+finally
+{
+    Log.Information("Server exiting.");
+}
 
 // ======================= 类型定义 =======================
 
