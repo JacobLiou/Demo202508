@@ -7,6 +7,16 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="FlaClientMock\**" />
+    <Compile Remove="FlaQueueServer\**" />
+    <Content Remove="FlaClientMock\**" />
+    <Content Remove="FlaQueueServer\**" />
+    <EmbeddedResource Remove="FlaClientMock\**" />
+    <EmbeddedResource Remove="FlaQueueServer\**" />
+    <None Remove="FlaClientMock\**" />
+    <None Remove="FlaQueueServer\**" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.3" />
   </ItemGroup>
 </Project>

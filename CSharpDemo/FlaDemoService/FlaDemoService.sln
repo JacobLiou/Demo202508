@@ -1,9 +1,13 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
-VisualStudioVersion = 17.14.36414.22 d17.14
+VisualStudioVersion = 17.14.36414.22
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlaDemoService", "FlaDemoService.csproj", "{8E1229BA-D771-6195-83B3-A480D45E7736}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlaQueueServer", "FlaQueueServer\FlaQueueServer.csproj", "{A7863651-B98D-5C34-25E0-ED3E27CEC229}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlaClientMock", "FlaClientMock\FlaClientMock.csproj", "{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,6 +19,14 @@ Global
 		{8E1229BA-D771-6195-83B3-A480D45E7736}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8E1229BA-D771-6195-83B3-A480D45E7736}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{8E1229BA-D771-6195-83B3-A480D45E7736}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A7863651-B98D-5C34-25E0-ED3E27CEC229}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A7863651-B98D-5C34-25E0-ED3E27CEC229}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A7863651-B98D-5C34-25E0-ED3E27CEC229}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A7863651-B98D-5C34-25E0-ED3E27CEC229}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
