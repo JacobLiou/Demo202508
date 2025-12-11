@@ -33,3 +33,36 @@ dotnet run
 
 ## REST 示例
 见 Swagger UI：打开 `http://localhost:5000`。
+
+
+
+{
+  "deviceId": "DL-FLA-01",
+  "type": "Otdr",
+  "params": {
+    "op_mode": "scan",
+    "sr_mode": "2",
+    "gain": "5",
+    "wr_len": "12.55",
+    "x_center": "005.1"
+  }
+}
+
+
+{
+  "deviceId": "DL-FLA-01",
+  "type": "Otdr",
+  "params": {
+    "op_mode": "auto_peak",
+    "start_m": "0.5",
+    "end_m": "25",
+    "count_mode": "2",
+    "algo": "2",
+    "width_m": "0.513",
+    "threshold_db": "-80",
+    "id": "09",
+    "sn": "SN9II1"
+  }
+}
+
+
