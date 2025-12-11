@@ -1,7 +1,3 @@
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Configuration;
 using Microsoft.OpenApi.Models;
 
 public class Program
@@ -19,6 +15,7 @@ public class Program
         builder.Services.AddSingleton<IInstrumentAdapterFactory, InstrumentAdapterFactory>();
         builder.Services.AddSingleton<IResultStore, InMemoryResultStore>();
         builder.Services.AddHostedService<MeasureWorker>();
+        builder.Services.AddHostedService<MockFlaHostedService>();
 
         // Swagger/OpenAPI
         builder.Services.AddEndpointsApiExplorer();
@@ -26,30 +23,24 @@ public class Program
         {
             opt.SwaggerDoc("v1", new OpenApiInfo
             {
-                Title = "FLA Demo Service API",
+                Title = "FLA Service API",
                 Version = "v1",
-                Description = "东隆科技 FLA 远控集成 Demo 的 REST API",
+                Description = "东隆科技 FLA 远控集成 的 REST API",
             });
-            // 支持在 Minimal API 上显示参数与注释（需要 XML 注释可扩展）
             opt.SupportNonNullableReferenceTypes();
         });
 
         var app = builder.Build();
 
-        // Swagger 中间件
         app.UseSwagger();
         app.UseSwaggerUI(c =>
         {
-            c.SwaggerEndpoint("/swagger/v1/swagger.json", "FLA Demo Service API v1");
-            c.RoutePrefix = string.Empty; // 让 http://localhost:5000 直接显示 UI
+            c.SwaggerEndpoint("/swagger/v1/swagger.json", "FLA Service API v1");
+            c.RoutePrefix = string.Empty;
         });
 
-        // API 映射
         app.MapGet("/healthz", () => Results.Ok(new { ok = true }))
            .WithName("健康检查").WithDescription("服务健康检查").WithTags("system");
-
-        app.MapGet("/api/devices", (IDeviceRegistry reg) => reg.List())
-           .WithName("设备列表").WithDescription("查询已配置的设备清单").WithTags("device");
 
         app.MapPost("/api/measure", async (SubmitRequest req, ITaskQueue queue, IResultStore store) =>
         {

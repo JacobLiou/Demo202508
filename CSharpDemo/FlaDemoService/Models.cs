@@ -1,5 +1,11 @@
 public enum MeasureType
-{ Otdr, OpticalPower, Wavelength, Osnr, Bert }
+{
+    Otdr,
+    OpticalPower,
+    Wavelength,
+    Osnr,
+    Bert
+}
 
 public record MeasureTask(
     string TaskId,
@@ -10,7 +16,12 @@ public record MeasureTask(
 );
 
 public enum TaskStatus
-{ Queued, Running, Success, Failed }
+{
+    Queued,
+    Running,
+    Success,
+    Failed
+}
 
 public record MeasureResult(
     string TaskId,
@@ -41,12 +52,11 @@ public static class ParamDefaults
     public static Dictionary<string, string> Normalize(Dictionary<string, string>? p)
     {
         var d = p is null ? new Dictionary<string, string>() : new Dictionary<string, string>(p);
-        // 默认参数（仅在未提供时）
-        if (!d.ContainsKey("op_mode")) d["op_mode"] = "scan"; // scan 或 auto_peak
-        if (!d.ContainsKey("sr_mode")) d["sr_mode"] = "0";    // SR_0
-        if (!d.ContainsKey("gain")) d["gain"] = "1";          // G_1
-        if (!d.ContainsKey("wr_len")) d["wr_len"] = "10.00";  // 5字符
-        if (!d.ContainsKey("x_center")) d["x_center"] = "000.0"; // 5字符
+        if (!d.ContainsKey("op_mode")) d["op_mode"] = "scan";
+        if (!d.ContainsKey("sr_mode")) d["sr_mode"] = "0";
+        if (!d.ContainsKey("gain")) d["gain"] = "1";
+        if (!d.ContainsKey("wr_len")) d["wr_len"] = "10.00";
+        if (!d.ContainsKey("x_center")) d["x_center"] = "000.0";
         return d;
     }
 }

@@ -4,7 +4,7 @@ public class DeviceInfo
     public string Vendor { get; init; } = default!;
     public string Model { get; init; } = default!;
     public string Host { get; init; } = default!;
-    public int Port { get; init; } = 4300; // 文档规定端口 4300
+    public int Port { get; init; } = 4300;
     public string AdapterType { get; init; } = "DonglongFlaAdapter";
 }
 
