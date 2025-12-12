@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海浪模拟</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #000;
+            overflow: hidden;
+            color: #fff;
+            cursor: default;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to bottom, #1a2a3a, #0d1a26);
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            width: 300px;
+            padding: 20px;
+            background: rgba(20, 25, 35, 0.8);
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+            z-index: 100;
+        }
+        
+        .control-group {
+            margin-bottom: 20px;
+        }
+        
+        h2 {
+            font-size: 1.5em;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+        
+        p {
+            font-size: 0.9em;
+            margin-bottom: 15px;
+            color: #cccccc;
+            line-height: 1.4;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .slider-label {
+            width: 100px;
+            font-size: 0.9em;
+            color: #ffffff;
+        }
+        
+        .slider-wrapper {
+            flex: 1;
+            position: relative;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 6px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: linear-gradient(to right, #4facfe, #00f2fe);
+            border-radius: 3px;
+            outline: none;
+            cursor: pointer;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            border: 2px solid #4facfe;
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.3);
+            border: 2px solid #4facfe;
+        }
+        
+        .value-display {
+            position: absolute;
+            top: -25px;
+            right: 0;
+            font-size: 0.85em;
+            color: #ffffff;
+            background: rgba(20, 25, 35, 0.7);
+            padding: 2px 8px;
+            border-radius: 12px;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        button {
+            flex: 1;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 0.9em;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            backdrop-filter: blur(5px);
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(20, 25, 35, 0.8);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8em;
+            color: #4facfe;
+            z-index: 100;
+        }
+        
+        .instructions {
+            margin-top: 15px;
+            font-size: 0.8em;
+            color: #aaaaaa;
+            text-align: center;
+        }
+        
+        .live-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #4facfe;
+            border-radius: 50%;
+            margin-right: 5px;
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .water-surface {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60%;
+            background: linear-gradient(to top, 
+                rgba(0, 50, 80, 0.8), 
+                rgba(0, 70, 100, 0.6),
+                rgba(0, 90, 120, 0.4));
+            overflow: hidden;
+        }
+        
+        .wave {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJ3YXZlIiB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNIDAgNSBMIDIgMiBMIDQgNSBMIDYgMiBMIDggNSBMIDEwIDIgTCAxMiA1IEwgMTQgMiBMIDE2IDUgTCAxOCAyIEwgMjAgNSBMIDIyIDIgTCAyNCA1IEwgMjYgMiBMIDI4IDUgTCAzMC AyIEwgMzIgNSBMIDM0IDIgTCAzNiA1IEwgMzggMiBMIDQwIDUgTCA0MiAyIEwgNDQgNSBMIDQ2IDIgTCA0OCA1IEwgNTAgMiBMIDUyIDUgTCA1NCwyIEwgNTYgNSBMIDU4IDIgTCA2MCA1IEwgNjIgMiBMIDY0IDUgTCA2NiAyIEwgNjggNSBMIDcwIDIgTCA3MiA1IEwgNzQgMiBMIDc2IDUgTCA3OCAyIEwgODAgNSBMIDgyIDIgTCA4NCA1IEwgODYgMiBMIDg4IDUgTCA5MCAyIEwgOTIgNSBMIDk0IDIgTCA5NiA1IEwgOTggMiBMIDEwMCA1IFoiIGZpbGw9IiMwMDc3YmYiIGZpbGwtb3BhY2l0eT0iMC4xIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI3dhdmUpIi8+PC9zdmc+');
+            background-size: 100px 10px;
+            animation: wave-animation 5s linear infinite;
+        }
+        
+        .wave:nth-child(2) {
+            background-position-y: 5px;
+            animation-duration: 7s;
+            animation-delay: -3.5s;
+        }
+        
+        .wave:nth-child(3) {
+            background-position-y: 10px;
+            animation-duration: 9s;
+            animation-delay: -4.5s;
+        }
+        
+        @keyframes wave-animation {
+            0% { background-position-x: 0; }
+            100% { background-position-x: 100px; }
+        }
+        
+        .reflection {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, 
+                rgba(255, 255, 255, 0.05) 0%, 
+                rgba(255, 255, 255, 0.0) 100%);
+            pointer-events: none;
+        }
+        
+        .foam {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to top, 
+                rgba(255, 255, 255, 0.1) 0%, 
+                rgba(255, 255, 255, 0.0) 100%);
+            opacity: 0.3;
+            animation: foam-animation 3s ease-in-out infinite;
+        }
+        
+        @keyframes foam-animation {
+            0% { opacity: 0.2; }
+            50% { opacity: 0.4; }
+            100% { opacity: 0.2; }
+        }
+        
+        .glow {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 30%, 
+                rgba(255, 255, 255, 0.05) 0%, 
+                rgba(0, 0, 0, 0) 70%);
+            pointer-events: none;
+        }
+        
+        .particle {
+            position: absolute;
+            width: 2px;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        
+        /* Responsive design */
+        @media (max-width: 768px) {
+            #controls {
+                width: 250px;
+                padding: 15px;
+            }
+            
+            h2 {
+                font-size: 1.2em;
+            }
+            
+            .slider-label {
+                width: 80px;
+                font-size: 0.8em;
+            }
+            
+            .value-display {
+                font-size: 0.75em;
+            }
+            
+            .button-group {
+                flex-wrap: wrap;
+            }
+            
+            button {
+                font-size: 0.8em;
+                padding: 6px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <canvas id="canvas"></canvas>
+        
+        <div class="water-surface">
+            <div class="wave"></div>
+            <div class="wave"></div>
+            <div class="wave"></div>
+            <div class="reflection"></div>
+            <div class="foam"></div>
+            <div class="glow"></div>
+        </div>
+        
+        <div id="controls">
+            <h2>Ocean Wave Simulation <span class="live-indicator"></span></h2>
+            <p>Procedural ocean surface with real-time lighting. Adjust the elements below for a calmer or stormier sea.</p>
+            
+            <div class="control-group">
+                <div class="slider-container">
+                    <span class="slider-label">Wind speed</span>
+                    <div class="slider-wrapper">
+                        <input type="range" id="windSpeed" min="0.1" max="2.0" step="0.01" value="1.2">
+                        <span class="value-display" id="windValue">1.20×</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <div class="slider-container">
+                    <span class="slider-label">Wave height</span>
+                    <div class="slider-wrapper">
+                        <input type="range" id="waveHeight" min="0.1" max="2.0" step="0.01" value="1.0">
+                        <span class="value-display" id="heightValue">1.00×</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <div class="slider-container">
+                    <span class="slider-label">Lighting</span>
+                    <div class="slider-wrapper">
+                        <input type="range" id="lighting" min="0" max="100" step="1" value="62">
+                        <span class="value-display" id="lightValue">62%</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="resetBtn">Reset</button>
+                <button id="pauseBtn">Pause</button>
+                <button id="fullscreenBtn">Fullscreen</button>
+            </div>
+            
+            <div class="instructions">
+                Drag to look around. Press F for fullscreen, Space to pause.
+            </div>
+        </div>
+        
+        <div class="status">Live</div>
+    </div>
+
+    <script>
+        // Main application class
+        class OceanWaveSimulation {
+            constructor() {
+                this.canvas = document.getElementById('canvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.isPaused = false;
+                this.isFullscreen = false;
+                
+                // Controls
+                this.windSpeedSlider = document.getElementById('windSpeed');
+                this.waveHeightSlider = document.getElementById('waveHeight');
+                this.lightingSlider = document.getElementById('lighting');
+                this.windValueDisplay = document.getElementById('windValue');
+                this.heightValueDisplay = document.getElementById('heightValue');
+                this.lightValueDisplay = document.getElementById('lightValue');
+                this.resetBtn = document.getElementById('resetBtn');
+                this.pauseBtn = document.getElementById('pauseBtn');
+                this.fullscreenBtn = document.getElementById('fullscreenBtn');
+                
+                // Parameters
+                this.windSpeed = 1.2;
+                this.waveHeight = 1.0;
+                this.lighting = 0.62;
+                
+                // Animation state
+                this.time = 0;
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.lastMouseX = 0;
+                this.lastMouseY = 0;
+                this.isDragging = false;
+                
+                // Particles
+                this.particles = [];
+                this.maxParticles = 50;
+                
+                // Initialize
+                this.init();
+                this.setupEventListeners();
+                this.animate();
+            }
+            
+            init() {
+                this.resizeCanvas();
+                this.createParticles();
+                this.updateControls();
+            }
+            
+            resizeCanvas() {
+                this.canvas.width = window.innerWidth;
+                this.canvas.height = window.innerHeight;
+            }
+            
+            createParticles() {
+                this.particles = [];
+                for (let i = 0; i < this.maxParticles; i++) {
+                    this.particles.push({
+                        x: Math.random() * this.canvas.width,
+                        y: Math.random() * this.canvas.height,
+                        size: Math.random() * 2 + 1,
+                        speedX: (Math.random() - 0.5) * 0.5,
+                        speedY: (Math.random() - 0.5) * 0.5,
+                        alpha: Math.random() * 0.5 + 0.2
+                    });
+                }
+            }
+            
+            updateControls() {
+                this.windSpeed = parseFloat(this.windSpeedSlider.value);
+                this.waveHeight = parseFloat(this.waveHeightSlider.value);
+                this.lighting = parseFloat(this.lightingSlider.value) / 100;
+                
+                this.windValueDisplay.textContent = this.windSpeed.toFixed(2) + '×';
+                this.heightValueDisplay.textContent = this.waveHeight.toFixed(2) + '×';
+                this.lightValueDisplay.textContent = Math.round(this.lighting * 100) + '%';
+                
+                // Update visual effects based on controls
+                this.updateVisualEffects();
+            }
+            
+            updateVisualEffects() {
+                // Update wave animations based on wind speed
+                const waves = document.querySelectorAll('.wave');
+                waves.forEach((wave, index) => {
+                    const baseDuration = 5 + index * 2;
+                    const duration = baseDuration / this.windSpeed;
+                    wave.style.animationDuration = `${duration}s`;
+                });
+                
+                // Update foam opacity based on wave height
+                const foam = document.querySelector('.foam');
+                foam.style.opacity = 0.2 + (this.waveHeight * 0.2);
+                
+                // Update glow intensity based on lighting
+                const glow = document.querySelector('.glow');
+                const intensity = this.lighting * 0.1;
+                glow.style.background = `radial-gradient(circle at 50% 30%, 
+                    rgba(255, 255, 255, ${intensity}) 0%, 
+                    rgba(0, 0, 0, 0) 70%)`;
+                
+                // Update water surface gradient based on lighting
+                const waterSurface = document.querySelector('.water-surface');
+                const lightFactor = this.lighting;
+                waterSurface.style.background = `linear-gradient(to top, 
+                    rgba(0, ${Math.floor(50 * lightFactor)}, ${Math.floor(80 * lightFactor)}, 0.8), 
+                    rgba(0, ${Math.floor(70 * lightFactor)}, ${Math.floor(100 * lightFactor)}, 0.6),
+                    rgba(0, ${Math.floor(90 * lightFactor)}, ${Math.floor(120 * lightFactor)}, 0.4))`;
+            }
+            
+            setupEventListeners() {
+                window.addEventListener('resize', () => this.resizeCanvas());
+                
+                // Control sliders
+                this.windSpeedSlider.addEventListener('input', () => this.updateControls());
+                this.waveHeightSlider.addEventListener('input', () => this.updateControls());
+                this.lightingSlider.addEventListener('input', () => this.updateControls());
+                
+                // Buttons
+                this.resetBtn.addEventListener('click', () => this.reset());
+                this.pauseBtn.addEventListener('click', () => this.togglePause());
+                this.fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
+                
+                // Keyboard shortcuts
+                window.addEventListener('keydown', (e) => {
+                    if (e.key === ' ') {
+                        this.togglePause();
+                    } else if (e.key === 'f' || e.key === 'F') {
+                        this.toggleFullscreen();
+                    }
+                });
+                
+                // Mouse interaction
+                this.canvas.addEventListener('mousedown', (e) => {
+                    this.isDragging = true;
+                    this.lastMouseX = e.clientX;
+                    this.lastMouseY = e.clientY;
+                });
+                
+                this.canvas.addEventListener('mousemove', (e) => {
+                    if (this.isDragging) {
+                        const deltaX = e.clientX - this.lastMouseX;
+                        const deltaY = e.clientY - this.lastMouseY;
+                        
+                        // Rotate view based on mouse movement
+                        this.mouseX += deltaX * 0.01;
+                        this.mouseY += deltaY * 0.01;
+                        
+                        this.lastMouseX = e.clientX;
+                        this.lastMouseY = e.clientY;
+                    }
+                });
+                
+                this.canvas.addEventListener('mouseup', () => {
+                    this.isDragging = false;
+                });
+                
+                this.canvas.addEventListener('mouseleave', () => {
+                    this.isDragging = false;
+                });
+            }
+            
+            reset() {
+                this.windSpeedSlider.value = 1.2;
+                this.waveHeightSlider.value = 1.0;
+                this.lightingSlider.value = 62;
+                this.updateControls();
+                this.time = 0;
+                this.mouseX = 0;
+                this.mouseY = 0;
+                this.createParticles();
+            }
+            
+            togglePause() {
+                this.isPaused = !this.isPaused;
+                this.pauseBtn.textContent = this.isPaused ? 'Resume' : 'Pause';
+            }
+            
+            toggleFullscreen() {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen().catch(err => {
+                        console.log(`Error attempting to enable full-screen mode: ${err.message}`);
+                    });
+                } else {
+                    document.exitFullscreen();
+                }
+            }
+            
+            draw() {
+                const { ctx, canvas } = this;
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw sky gradient
+                const skyGradient = ctx.createLinearGradient(0, 0, 0, canvas.height * 0.4);
+                skyGradient.addColorStop(0, `rgba(20, 30, 45, ${this.lighting * 0.8})`);
+                skyGradient.addColorStop(1, `rgba(10, 20, 30, ${this.lighting * 0.6})`);
+                ctx.fillStyle = skyGradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height * 0.4);
+                
+                // Draw horizon
+                ctx.beginPath();
+                ctx.moveTo(0, canvas.height * 0.4);
+                ctx.lineTo(canvas.width, canvas.height * 0.4);
+                ctx.strokeStyle = `rgba(255, 255, 255, ${this.lighting * 0.1})`;
+                ctx.stroke();
+                
+                // Draw particles (simulating spray and mist)
+                this.particles.forEach(particle => {
+                    particle.x += particle.speedX * this.windSpeed;
+                    particle.y += particle.speedY * this.windSpeed;
+                    
+                    // Wrap particles around screen
+                    if (particle.x < 0) particle.x = canvas.width;
+                    if (particle.x > canvas.width) particle.x = 0;
+                    if (particle.y < 0) particle.y = canvas.height;
+                    if (particle.y > canvas.height) particle.y = 0;
+                    
+                    // Draw particle
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 255, 255, ${particle.alpha * this.lighting})`;
+                    ctx.fill();
+                });
+                
+                // Draw subtle water ripples
+                ctx.save();
+                ctx.translate(canvas.width / 2, canvas.height / 2);
+                ctx.rotate(this.mouseX);
+                ctx.translate(-canvas.width / 2, -canvas.height / 2);
+                
+                // Add subtle ripple effect
+                for (let i = 0; i < 5; i++) {
+                    const rippleSize = 100 + i * 50;
+                    const rippleOffset = this.time * 0.1 + i * 0.5;
+                    
+                    ctx.beginPath();
+                    ctx.arc(
+                        canvas.width / 2 + Math.sin(rippleOffset) * 50, 
+                        canvas.height / 2 + Math.cos(rippleOffset) * 50, 
+                        rippleSize, 0, Math.PI * 2
+                    );
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${0.05 * this.lighting})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+                ctx.restore();
+                
+                // Draw subtle light reflections on water
+                const waterLevel = canvas.height * 0.4;
+                for (let i = 0; i < 3; i++) {
+                    const y = waterLevel + (i * 20);
+                    const opacity = 0.1 * this.lighting * (1 - i * 0.2);
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(canvas.width, y);
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${opacity})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+            
+            animate() {
+                if (!this.isPaused) {
+                    this.time += 0.016; // Approximately 60fps
+                    
+                    this.draw();
+                }
+                
+                requestAnimationFrame(() => this.animate());
+            }
+        }
+        
+        // Initialize the simulation when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            const simulation = new OceanWaveSimulation();
+        });
+    </script>
+</body>
+</html>

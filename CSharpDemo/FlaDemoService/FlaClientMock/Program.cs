@@ -21,7 +21,7 @@ using System.Text.Json;
 //   staggerMs       客户端启动错峰毫秒 (默认 50)
 // =====================================================
 
-var host = args.Length > 0 ? args[0] : "127.0.0.1";
+var host = args.Length > 0 ? args[0] : "10.220.165.93";
 var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 5600;
 var clients = args.Length > 2 && int.TryParse(args[2], out var c) ? Math.Min(Math.Max(c, 1), 16) : 16;
 var tasksPerClient = args.Length > 3 && int.TryParse(args[3], out var tpc) ? Math.Max(tpc, 1) : 2;

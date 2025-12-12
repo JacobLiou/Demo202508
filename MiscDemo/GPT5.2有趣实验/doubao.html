@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海浪模拟</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: linear-gradient(180deg, #e0f7fa 0%, #b2ebf2 50%, #80deea 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            max-width: 900px;
+            height: 600px;
+            background-color: rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 188, 212, 0.2);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            overflow: hidden;
+        }
+
+        #waveCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 40px;
+            padding: 15px 30px;
+            background-color: rgba(255, 255, 255, 0.25);
+            border-radius: 15px;
+            box-shadow: 0 4px 16px rgba(0, 121, 107, 0.15);
+            z-index: 10;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-label {
+            color: #00695c;
+            font-size: 14px;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .control-slider {
+            -webkit-appearance: none;
+            width: 180px;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(0, 121, 107, 0.2);
+            outline: none;
+        }
+
+        .control-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #009688;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .control-slider::-webkit-slider-thumb:hover {
+            background: #00796b;
+        }
+
+        .control-value {
+            color: #004d40;
+            font-size: 12px;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        h1 {
+            color: #004d40;
+            margin-bottom: 20px;
+            font-size: 32px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                flex-direction: column;
+                gap: 20px;
+                padding: 15px 20px;
+                bottom: 20px;
+            }
+
+            .control-slider {
+                width: 150px;
+            }
+
+            .container {
+                height: 500px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>海浪模拟</h1>
+    <div class="container">
+        <canvas id="waveCanvas"></canvas>
+        <div class="controls">
+            <div class="control-group">
+                <label class="control-label">风速</label>
+                <input type="range" min="0.1" max="2" step="0.1" value="0.8" class="control-slider" id="windSpeed">
+                <span class="control-value" id="windSpeedValue">0.8</span>
+            </div>
+            <div class="control-group">
+                <label class="control-label">浪高</label>
+                <input type="range" min="10" max="80" step="5" value="40" class="control-slider" id="waveHeight">
+                <span class="control-value" id="waveHeightValue">40</span>
+            </div>
+            <div class="control-group">
+                <label class="control-label">光照</label>
+                <input type="range" min="0.2" max="1" step="0.05" value="0.7" class="control-slider" id="lightness">
+                <span class="control-value" id="lightnessValue">0.7</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 获取画布和上下文
+        const canvas = document.getElementById('waveCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 初始化参数
+        let windSpeed = 0.8;    // 风速（控制海浪移动速度）
+        let waveHeight = 40;    // 浪高（控制振幅）
+        let lightness = 0.7;    // 光照（控制颜色亮度）
+        let time = 0;           // 时间变量，用于动画
+        
+        // 适配窗口大小
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
+        }
+        
+        // 初始化时调整画布大小，监听窗口变化
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        // 更新控制参数和显示值
+        function updateControls() {
+            // 风速
+            const windSlider = document.getElementById('windSpeed');
+            const windValue = document.getElementById('windSpeedValue');
+            windSlider.addEventListener('input', (e) => {
+                windSpeed = parseFloat(e.target.value);
+                windValue.textContent = windSpeed.toFixed(1);
+            });
+            
+            // 浪高
+            const waveSlider = document.getElementById('waveHeight');
+            const waveValue = document.getElementById('waveHeightValue');
+            waveSlider.addEventListener('input', (e) => {
+                waveHeight = parseInt(e.target.value);
+                waveValue.textContent = waveHeight;
+            });
+            
+            // 光照
+            const lightSlider = document.getElementById('lightness');
+            const lightValue = document.getElementById('lightnessValue');
+            lightSlider.addEventListener('input', (e) => {
+                lightness = parseFloat(e.target.value);
+                lightValue.textContent = lightness.toFixed(2);
+            });
+        }
+        
+        // 绘制海浪
+        function drawWaves() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const width = canvas.width;
+            const height = canvas.height;
+            const centerY = height * 0.6;  // 海浪中心Y轴位置
+            
+            // 定义多层海浪（增加层次感）
+            const waves = [
+                { speed: 1.0, amplitudeRatio: 1.0, offset: 0 },    // 主浪
+                { speed: 0.8, amplitudeRatio: 0.7, offset: Math.PI/2 },  // 次浪1
+                { speed: 0.6, amplitudeRatio: 0.5, offset: Math.PI }     // 次浪2
+            ];
+            
+            waves.forEach((wave, index) => {
+                ctx.beginPath();
+                
+                // 计算海浪每个点的坐标
+                for (let x = 0; x <= width; x += 5) {
+                    // 组合多个正弦波模拟真实海浪
+                    const y = centerY + 
+                        Math.sin((x / width) * Math.PI * 4 + time * windSpeed * wave.speed + wave.offset) * waveHeight * wave.amplitudeRatio +
+                        Math.sin((x / width) * Math.PI * 2 + time * windSpeed * wave.speed * 0.8) * waveHeight * wave.amplitudeRatio * 0.5;
+                    
+                    if (x === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                }
+                
+                // 闭合路径（连接到画布底部）
+                ctx.lineTo(width, height);
+                ctx.lineTo(0, height);
+                ctx.closePath();
+                
+                // 计算海浪颜色（根据光照和层级调整）
+                const hue = 200;  // 海洋蓝色调
+                const saturation = 0.8 - index * 0.1;  // 层级越低饱和度越低
+                const alpha = 0.4 - index * 0.1;       // 层级越低透明度越低
+                
+                // 创建渐变填充
+                const gradient = ctx.createLinearGradient(0, centerY - waveHeight, 0, centerY + waveHeight);
+                gradient.addColorStop(0, `hsla(${hue}, ${saturation * 100}%, ${lightness * 80}%, ${alpha})`);
+                gradient.addColorStop(1, `hsla(${hue}, ${saturation * 100}%, ${lightness * 40}%, ${alpha})`);
+                
+                ctx.fillStyle = gradient;
+                ctx.fill();
+            });
+            
+            // 绘制海面反光效果
+            ctx.beginPath();
+            for (let x = 0; x <= width; x += 5) {
+                const y = centerY + Math.sin((x / width) * Math.PI * 4 + time * windSpeed) * waveHeight * 0.1;
+                x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+            }
+            ctx.strokeStyle = `hsla(200, 100%, ${lightness * 90}%, 0.6)`;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 更新时间变量，驱动动画
+            time += 0.02;
+            
+            // 循环绘制
+            requestAnimationFrame(drawWaves);
+        }
+        
+        // 初始化
+        updateControls();
+        drawWaves();
+    </script>
+</body>
+</html>

@@ -1,0 +1,382 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>海浪模拟 – 单页应用</title>
+  <style>
+    :root{
+      --panel-bg: rgba(20,24,31,0.72);
+      --panel-border: rgba(255,255,255,0.12);
+      --text: #e9edf3;
+      --accent: #72a7ff;
+      --accent-2: #5ec3d6;
+    }
+    html, body { height: 100%; }
+    body {
+      margin: 0; overflow: hidden; background: radial-gradient(1200px 800px at 50% -10%,
+        #8aa1b8 0%, #2a3a4a 55%, #101820 100%);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, PingFang SC, Microsoft YaHei, sans-serif;
+      color: var(--text);
+    }
+    #glcanvas { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+    .panel {
+      position: fixed; left: 24px; top: 24px; width: clamp(280px, 26vw, 420px);
+      background: var(--panel-bg); border: 1px solid var(--panel-border);
+      backdrop-filter: blur(8px) saturate(120%);
+      box-shadow: 0 8px 24px rgba(0,0,0,.35);
+      border-radius: 16px; padding: 16px 18px; user-select: none;
+    }
+    .row { margin: 10px 0 18px; }
+    .row label { display:flex; justify-content:space-between; font-size: 13px; opacity: .92; margin-bottom: 8px; }
+    .row input[type=range] {
+      width: 100%; -webkit-appearance: none; appearance: none; height: 8px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2)); border-radius: 8px;
+      outline: none; opacity: .85;
+    }
+    .row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 18px; height: 18px;
+      border-radius: 50%; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.35);
+      cursor: pointer;
+    }
+    .btns { display:flex; gap: 12px; flex-wrap: wrap; }
+    .btn { flex: 1 1 30%; height: 36px; border-radius: 18px; border: 1px solid var(--panel-border);
+      background: rgba(255,255,255,.06); color: var(--text); cursor: pointer;
+      transition: all .18s ease; font-weight: 600; }
+    .btn:hover { background: rgba(255,255,255,.14); }
+    .hint { margin-top: 8px; font-size: 12px; opacity: .7; }
+    .badge { position: fixed; right: 20px; bottom: 16px; opacity:.7; font-size:12px; }
+    .warn { position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+      background: #0b1118; color: #cde1ff; font-size: 16px; }
+    .credit {position:fixed; right:24px; top:24px; opacity:0.65; font-size:12px;}
+  </style>
+</head>
+<body>
+  <canvas id="glcanvas"></canvas>
+  <div class="panel" id="panel">
+    <div class="row">
+      <label><span>风速</span><span id="windVal">40%</span></label>
+      <input id="wind" type="range" min="0" max="100" value="40" />
+    </div>
+    <div class="row">
+      <label><span>浪高</span><span id="waveVal">50%</span></label>
+      <input id="wave" type="range" min="0" max="100" value="50" />
+    </div>
+    <div class="row">
+      <label><span>光照</span><span id="lightVal">46%</span></label>
+      <input id="light" type="range" min="0" max="100" value="46" />
+    </div>
+    <div class="btns">
+      <button class="btn" id="reset">重置</button>
+      <button class="btn" id="pause">暂停</button>
+      <button class="btn" id="fs">全屏</button>
+    </div>
+    <div class="hint">按住拖动以环顾；按 <b>F</b> 全屏，按 <b>空格</b> 暂停/继续。</div>
+  </div>
+  <div class="credit">海浪模拟 • WebGL2 / Gerstner Waves</div>
+  <div class="warn" id="warn">您的浏览器不支持 WebGL2。请更换现代浏览器。</div>
+<script>
+(function(){
+  const canvas = document.getElementById('glcanvas');
+  const gl = canvas.getContext('webgl2', {antialias:true});
+  const warn = document.getElementById('warn');
+  if(!gl){ warn.style.display='flex'; return; }
+
+  // ----- Resize -----
+  function resize(){
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    const w = canvas.clientWidth = window.innerWidth;
+    const h = canvas.clientHeight = window.innerHeight;
+    canvas.width = Math.floor(w*dpr);
+    canvas.height = Math.floor(h*dpr);
+    gl.viewport(0,0,canvas.width,canvas.height);
+  }
+  window.addEventListener('resize', resize, {passive:true}); resize();
+
+  // ----- UI -----
+  const wind = document.getElementById('wind');
+  const wave = document.getElementById('wave');
+  const light = document.getElementById('light');
+  const windVal = document.getElementById('windVal');
+  const waveVal = document.getElementById('waveVal');
+  const lightVal = document.getElementById('lightVal');
+  function setLabel(el, val){ el.textContent = Math.round(val) + '%'; }
+  setLabel(windVal, wind.value);
+  setLabel(waveVal, wave.value);
+  setLabel(lightVal, light.value);
+  wind.oninput = ()=> setLabel(windVal, wind.value);
+  wave.oninput = ()=> setLabel(waveVal, wave.value);
+  light.oninput = ()=> setLabel(lightVal, light.value);
+
+  // ----- GL helpers -----
+  function compile(type, src){
+    const sh = gl.createShader(type); gl.shaderSource(sh, src); gl.compileShader(sh);
+    if(!gl.getShaderParameter(sh, gl.COMPILE_STATUS)){
+      console.error(gl.getShaderInfoLog(sh)); throw new Error('Shader compile error');
+    } return sh;
+  }
+  function link(vs, fs){
+    const p = gl.createProgram(); gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p);
+    if(!gl.getProgramParameter(p, gl.LINK_STATUS)){
+      console.error(gl.getProgramInfoLog(p)); throw new Error('Program link error');
+    } return p;
+  }
+
+  // ----- Shaders (Gerstner Waves) -----
+  const vsSrc = `#version 300 es
+  precision highp float;
+  layout(location=0) in vec3 a_pos; // x z plane (y=0)
+  layout(location=1) in vec2 a_uv;
+  uniform mat4 u_proj, u_view;
+  uniform float u_time;
+  uniform int u_waveCount;
+  uniform vec2 u_dir[4];
+  uniform float u_lambda[4];
+  uniform float u_amp[4];
+  uniform float u_steep[4];
+  const float g = 9.81; // gravity
+  out vec3 v_world;
+  out vec3 v_normal;
+  out vec2 v_uv;
+  void main(){
+    float x = a_pos.x; float z = a_pos.z;
+    float y = 0.0;
+    vec3 disp = vec3(0.0);
+    vec3 n = vec3(0.0, 1.0, 0.0);
+    for(int i=0;i<4;i++){
+      if(i>=u_waveCount) break;
+      float k = 6.2831853 / u_lambda[i];
+      float w = sqrt(g * k);
+      vec2 d = normalize(u_dir[i]);
+      float phi = k*(d.x*x + d.y*z) - w * u_time;
+      float A = u_amp[i];
+      float Q = u_steep[i];
+      // displacement
+      disp.x += Q*A*d.x*cos(phi);
+      y      += A*sin(phi);
+      disp.z += Q*A*d.y*cos(phi);
+      // approximate normal (analytical derivative)
+      n.x += -d.x*k*A*cos(phi);
+      n.y += -Q*k*A*sin(phi);
+      n.z += -d.y*k*A*cos(phi);
+    }
+    vec3 world = vec3(x + disp.x, y, z + disp.z);
+    v_world = world;
+    v_normal = normalize(n);
+    v_uv = a_uv;
+    gl_Position = u_proj * u_view * vec4(world, 1.0);
+  }`;
+
+  const fsSrc = `#version 300 es
+  precision highp float;
+  in vec3 v_world;
+  in vec3 v_normal;
+  in vec2 v_uv;
+  uniform vec3 u_camera;
+  uniform vec3 u_lightDir; // normalized
+  uniform float u_lightI;   // 0..1
+  uniform vec3 u_deepColor; // water base
+  uniform vec3 u_shallowColor;
+  out vec4 outColor;
+  void main(){
+    vec3 N = normalize(v_normal);
+    vec3 L = normalize(u_lightDir);
+    vec3 V = normalize(u_camera - v_world);
+    vec3 H = normalize(L + V);
+    float diff = max(dot(N, L), 0.0);
+    float spec = pow(max(dot(N, H), 0.0), 64.0);
+    // Fresnel for rim highlight
+    float fres = pow(1.0 - max(dot(N,V), 0.0), 3.0);
+    // Depth-based color blend: more shallow near surface normal up (approx.)
+    float shallowFactor = smoothstep(0.3, 0.9, N.y);
+    vec3 color = mix(u_deepColor, u_shallowColor, shallowFactor);
+    // Lighting
+    vec3 ambient = color * (0.35 + 0.45*u_lightI);
+    vec3 diffuse = color * diff * (0.55*u_lightI);
+    vec3 specular = vec3(1.0) * spec * (0.35 + 0.65*u_lightI);
+    // Soft fog for tranquil look
+    float dist = length(u_camera - v_world);
+    float fog = clamp((dist-120.0)/240.0, 0.0, 1.0);
+    vec3 sky = vec3(0.12,0.19,0.26);
+    vec3 finalColor = mix(ambient + diffuse + specular + fres*vec3(0.35,0.45,0.55), sky, fog);
+    outColor = vec4(finalColor, 1.0);
+  }`;
+
+  const vs = compile(gl.VERTEX_SHADER, vsSrc);
+  const fs = compile(gl.FRAGMENT_SHADER, fsSrc);
+  const program = link(vs, fs);
+  gl.useProgram(program);
+
+  // ----- Mesh (grid plane) -----
+  const RES = 128;            // grid resolution per side
+  const SIZE = 200.0;         // world half-size
+  const verts = new Float32Array((RES+1)*(RES+1)*5);
+  const idxs = new Uint32Array(RES*RES*6);
+  let v = 0, t = 0;
+  for(let iz=0; iz<=RES; iz++){
+    const z = ((iz/RES)*2-1) * SIZE;
+    for(let ix=0; ix<=RES; ix++){
+      const x = ((ix/RES)*2-1) * SIZE;
+      const u = ix/RES, wv = iz/RES;
+      verts[v++] = x; // pos.x
+      verts[v++] = 0; // pos.y
+      verts[v++] = z; // pos.z
+      verts[v++] = u; // uv.x
+      verts[v++] = wv; // uv.y
+      if(ix<RES && iz<RES){
+        const i0 = iz*(RES+1)+ix;
+        const i1 = i0+1;
+        const i2 = i0+(RES+1);
+        const i3 = i2+1;
+        idxs[t++] = i0; idxs[t++] = i2; idxs[t++] = i1;
+        idxs[t++] = i1; idxs[t++] = i2; idxs[t++] = i3;
+      }
+    }
+  }
+  const vao = gl.createVertexArray(); gl.bindVertexArray(vao);
+  const vbo = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, verts, gl.STATIC_DRAW);
+  gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 20, 0);
+  gl.enableVertexAttribArray(1); gl.vertexAttribPointer(1, 2, gl.FLOAT, false, 20, 12);
+  const ibo = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, idxs, gl.STATIC_DRAW);
+
+  // ----- Uniform locations -----
+  const loc = {
+    u_proj: gl.getUniformLocation(program, 'u_proj'),
+    u_view: gl.getUniformLocation(program, 'u_view'),
+    u_time: gl.getUniformLocation(program, 'u_time'),
+    u_waveCount: gl.getUniformLocation(program, 'u_waveCount'),
+    u_dir: [gl.getUniformLocation(program, 'u_dir[0]'), gl.getUniformLocation(program, 'u_dir[1]'), gl.getUniformLocation(program, 'u_dir[2]'), gl.getUniformLocation(program, 'u_dir[3]')],
+    u_lambda: [gl.getUniformLocation(program, 'u_lambda[0]'), gl.getUniformLocation(program, 'u_lambda[1]'), gl.getUniformLocation(program, 'u_lambda[2]'), gl.getUniformLocation(program, 'u_lambda[3]')],
+    u_amp: [gl.getUniformLocation(program, 'u_amp[0]'), gl.getUniformLocation(program, 'u_amp[1]'), gl.getUniformLocation(program, 'u_amp[2]'), gl.getUniformLocation(program, 'u_amp[3]')],
+    u_steep: [gl.getUniformLocation(program, 'u_steep[0]'), gl.getUniformLocation(program, 'u_steep[1]'), gl.getUniformLocation(program, 'u_steep[2]'), gl.getUniformLocation(program, 'u_steep[3]')],
+    u_camera: gl.getUniformLocation(program, 'u_camera'),
+    u_lightDir: gl.getUniformLocation(program, 'u_lightDir'),
+    u_lightI: gl.getUniformLocation(program, 'u_lightI'),
+    u_deepColor: gl.getUniformLocation(program, 'u_deepColor'),
+    u_shallowColor: gl.getUniformLocation(program, 'u_shallowColor')
+  };
+
+  // ----- Camera -----
+  let yaw = -0.25, pitch = -0.18, radius = 160;
+  let isDragging=false, lastX=0, lastY=0;
+  canvas.addEventListener('mousedown', e=>{ isDragging=true; lastX=e.clientX; lastY=e.clientY; canvas.setPointerCapture(e.pointerId||1); });
+  window.addEventListener('mouseup', ()=>{ isDragging=false; });
+  window.addEventListener('mousemove', e=>{
+    if(!isDragging) return;
+    const dx = e.clientX - lastX, dy = e.clientY - lastY; lastX=e.clientX; lastY=e.clientY;
+    yaw += dx * 0.0025; pitch += dy * 0.0022; pitch = Math.max(-1.2, Math.min(0.3, pitch));
+  });
+
+  function lookAt(eye, target, up){
+    const zx = eye[0]-target[0], zy = eye[1]-target[1], zz = eye[2]-target[2];
+    let rl = Math.hypot(zx,zy,zz); const z0=zx/rl, z1=zy/rl, z2=zz/rl;
+    let xx = up[1]*z2 - up[2]*z1, xy = up[2]*z0 - up[0]*z2, xz = up[0]*z1 - up[1]*z0;
+    rl = Math.hypot(xx,xy,xz); xx/=rl; xy/=rl; xz/=rl;
+    const yx = z1*xz - z2*xy, yy = z2*xx - z0*xz, yz = z0*xy - z1*xx;
+    return new Float32Array([
+      xx, yx, z0, 0,
+      xy, yy, z1, 0,
+      xz, yz, z2, 0,
+      -(xx*eye[0] + xy*eye[1] + xz*eye[2]),
+      -(yx*eye[0] + yy*eye[1] + yz*eye[2]),
+      -(z0*eye[0] + z1*eye[1] + z2*eye[2]),
+      1
+    ]);
+  }
+  function perspective(fovy, aspect, near, far){
+    const f = 1/Math.tan(fovy/2), nf = 1/(near-far);
+    return new Float32Array([
+      f/aspect, 0, 0, 0,
+      0, f, 0, 0,
+      0, 0, (far+near)*nf, -1,
+      0, 0, (2*far*near)*nf, 0
+    ]);
+  }
+
+  // Colors tuned for tranquil sea
+  gl.uniform3f(loc.u_deepColor, 0.06,0.19,0.26);
+  gl.uniform3f(loc.u_shallowColor, 0.15,0.35,0.42);
+
+  // Light direction (slightly from top-right)
+  let lightI = 0.46; // default percent
+  let lightDir = [0.35, 0.65, 0.25];
+
+  // Wave params -----
+  const waveCount = 3;
+  gl.uniform1i(loc.u_waveCount, waveCount);
+  const dirBase = [ [1,0.2], [0.6,0.8], [-0.8,0.3] ];
+  let ampScale = 1.0;
+  let windSpeedScale = 0.8;
+  const lambdaBase = [75.0, 38.0, 22.0];
+  const steepBase = [0.75, 0.55, 0.45];
+
+  function uploadWaves(){
+    for(let i=0;i<waveCount;i++){
+      gl.uniform2f(loc.u_dir[i], dirBase[i][0]*windSpeedScale, dirBase[i][1]*windSpeedScale);
+      gl.uniform1f(loc.u_lambda[i], lambdaBase[i]);
+      gl.uniform1f(loc.u_amp[i], ampScale * (i===0?3.2:(i===1?1.4:0.6)));
+      gl.uniform1f(loc.u_steep[i], steepBase[i]);
+    }
+  }
+
+  uploadWaves();
+
+  // ----- Interaction and controls -----
+  document.getElementById('reset').onclick = ()=>{
+    wind.value = 40; wave.value = 50; light.value = 46; setLabel(windVal,40); setLabel(waveVal,50); setLabel(lightVal,46);
+    ampScale = 1.0; windSpeedScale = 0.8; lightI = 0.46;
+    uploadWaves();
+  };
+  let paused=false;
+  document.getElementById('pause').onclick = ()=>{ paused = !paused; document.getElementById('pause').textContent = paused? '继续':'暂停'; };
+  document.getElementById('fs').onclick = ()=>{ if(document.fullscreenElement){ document.exitFullscreen(); } else { canvas.requestFullscreen().catch(()=>{}); }};
+  window.addEventListener('keydown', (e)=>{
+    if(e.key===' '){ e.preventDefault(); paused=!paused; document.getElementById('pause').textContent = paused? '继续':'暂停'; }
+    if(e.key==='f' || e.key==='F'){ if(!document.fullscreenElement) canvas.requestFullscreen().catch(()=>{}); else document.exitFullscreen(); }
+  });
+
+  wind.addEventListener('input', ()=>{ windSpeedScale = 0.2 + (wind.value/100)*1.2; uploadWaves(); });
+  wave.addEventListener('input', ()=>{ ampScale = 0.4 + (wave.value/100)*1.8; uploadWaves(); });
+  light.addEventListener('input', ()=>{ lightI = Math.min(1.0, Math.max(0.0, light.value/100)); });
+
+  // ----- Render loop -----
+  gl.enable(gl.DEPTH_TEST);
+  gl.clearColor(0.05,0.08,0.12,1);
+
+  let start = performance.now();
+  function frame(){
+    const now = performance.now();
+    const t = (now-start)/1000;
+
+    // camera spherical orbit
+    const cx = Math.cos(yaw)*Math.cos(pitch);
+    const cy = Math.sin(pitch);
+    const cz = Math.sin(yaw)*Math.cos(pitch);
+    const eye = [cx*radius, 40 + cy*40, cz*radius];
+    const proj = perspective(45*Math.PI/180, canvas.width/canvas.height, 0.1, 800.0);
+    const view = lookAt(eye, [0,0,0], [0,1,0]);
+
+    gl.uniformMatrix4fv(loc.u_proj, false, proj);
+    gl.uniformMatrix4fv(loc.u_view, false, view);
+    gl.uniform3f(loc.u_camera, eye[0], eye[1], eye[2]);
+    const n = Math.hypot(lightDir[0], lightDir[1], lightDir[2]);
+    gl.uniform3f(loc.u_lightDir, lightDir[0]/n, lightDir[1]/n, lightDir[2]/n);
+    gl.uniform1f(loc.u_lightI, lightI);
+
+    if(!paused){ gl.uniform1f(loc.u_time, t * (0.6 + windSpeedScale*0.7)); }
+
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    gl.bindVertexArray(vao);
+    gl.drawElements(gl.TRIANGLES, idxs.length, gl.UNSIGNED_INT, 0);
+
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+</script>
+</body>
+</html>
+``

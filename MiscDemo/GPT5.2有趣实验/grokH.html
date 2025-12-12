@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>海浪模拟 · Ocean Waves</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body { margin:0; overflow:hidden; background:#000; font-family: "Microsoft YaHei", sans-serif; }
+  canvas { display:block; }
+  #gui {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.5);
+    padding: 15px 25px;
+    border-radius: 12px;
+    color: #fff;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  #gui label {
+    display: block;
+    margin: 12px 0 6px;
+    font-size: 14px;
+    opacity: 0.9;
+  }
+  #gui input[type=range] {
+    width: 260px;
+    accent-color: #4fc3f7;
+  }
+  h1 {
+    position: absolute;
+    top: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: rgba(255,255,255,0.9);
+    font-weight: 300;
+    letter-spacing: 4px;
+    margin:0;
+    text-shadow: 0 2px 20px rgba(0,0,0,0.6);
+  }
+</style>
+</head>
+<body>
+
+<h1>海浪模拟</h1>
+
+<div id="gui">
+  <label>风速 Wind Speed <span id="windVal">8</span></label>
+  <input type="range" id="wind" min="0" max="20" step="0.1" value="8">
+
+  <label>浪高 Wave Height <span id="heightVal">0.8</span></label>
+  <input type="range" id="height" min="0" max="3" step="0.05" value="0.8">
+
+  <label>光照 Sun Elevation <span id="sunVal">45</span>°</label>
+  <input type="range" id="sun" min="5" max="90" step="1" value="45">
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.168.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.168.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+// ------------------- Three.js 海浪模拟 -------------------
+let scene, camera, renderer, ocean, controls;
+
+init();
+animate();
+
+function init() {
+  // 场景
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x87ceeb);
+
+  // 相机
+  camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+  camera.position.set(0, 8, 20);
+
+  // 渲染器
+  renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  document.body.appendChild(renderer.domElement);
+
+  // 简单轨道控制（可拖动视角）
+  controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.05;
+  controls.maxPolarAngle = Math.PI / 2.2;
+  controls.minDistance = 10;
+  controls.maxDistance = 60;
+
+  // 光照
+  const ambient = new THREE.AmbientLight(0xffffff, 0.4);
+  scene.add(ambient);
+  const sun = new THREE.DirectionalLight(0xfff0e0, 1.5);
+  sun.position.set(50, 100, 50);
+  scene.add(sun);
+
+  // 海平面（自定义着色器）
+  const oceanGeometry = new THREE.PlaneGeometry(200, 200, 256, 256);
+  oceanGeometry.rotateX(-Math.PI / 2);
+
+  const oceanMaterial = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime: { value: 0 },
+      uWind: { value: 8.0 },
+      uHeight: { value: 0.8 },
+      uSunDirection: { value: new THREE.Vector3(0.5, 1, 0.5).normalize() },
+      uBigWavesSpeed: { value: 0.3 }
+    },
+    vertexShader: `
+      uniform float uTime;
+      uniform float uWind;
+      uniform float uHeight;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      varying float vElevation;
+
+      // 经典 Gerstner Wave
+      vec3 gerstnerWave(vec2 xz, float A, float wavelength, float speed, vec2 direction) {
+        float k = 2.0 * 3.14159 / wavelength;
+        float c = sqrt(9.8 / k);
+        vec2 d = normalize(direction);
+        float f = k * (dot(d, xz) - speed * c * uTime);
+        float a = A / k;
+
+        return vec3(
+          d.x * (a * cos(f)),
+          a * sin(f),
+          d.y * (a * cos(f))
+        );
+      }
+
+      void main() {
+        vec4 modelPosition = modelMatrix * vec4(position, 1.0);
+        vec2 pos = modelPosition.xz;
+
+        vec3 wave1 = gerstnerWave(pos, uHeight*0.8, 12.0 + uWind*0.8, 0.8 + uWind*0.08, vec2(1.0, 0.2));
+        vec3 wave2 = gerstnerWave(pos, uHeight*0.6, 8.0  + uWind*0.5, 1.0 + uWind*0.1,  vec2(0.8, 1.0));
+        vec3 wave3 = gerstnerWave(pos, uHeight*0.4, 5.0  + uWind*0.3, 1.2 + uWind*0.12, vec2(-1.0, 0.7));
+
+        modelPosition.y += wave1.y + wave2.y + wave3.y;
+        modelPosition.xz += wave1.xz + wave2.xz + wave3.xz;
+
+        vec4 viewPosition = viewMatrix * modelPosition;
+        gl_Position = projectionMatrix * viewPosition;
+
+        vElevation = modelPosition.y;
+        vPosition = modelPosition.xyz;
+        vNormal = normalize(normalMatrix * normal);
+      }
+    `,
+    fragmentShader: `
+      uniform vec3 uSunDirection;
+      varying vec3 vNormal;
+      varying vec3 vPosition;
+      varying float vElevation;
+
+      void main() {
+        vec3 deepColor = vec3(0.02, 0.15, 0.25);
+        vec3 surfaceColor = vec3(0.1, 0.45, 0.65);
+        vec3 foamColor = vec3(0.95, 0.98, 1.0);
+
+        // 基础水色随高度渐变
+        float mixStrength = smoothstep(-2.0, 2.0, vElevation);
+        vec3 waterColor = mix(deepColor, surfaceColor, mixStrength);
+
+        // 简单菲涅尔 + 高光
+        vec3 viewDir = normalize(cameraPosition - vPosition);
+        float fresnel = 1.0 - max(dot(viewDir, vNormal), 0.0);
+        fresnel = pow(fresnel, 2.0);
+
+        float sunDot = max(dot(vNormal, uSunDirection), 0.0);
+        float specular = pow(max(dot(reflect(-uSunDirection, vNormal), viewDir), 0.0), 128.0);
+
+        // 波峰泡沫
+        float foam = smoothstep(1.2, 0.8, vElevation);
+
+        vec3 color = waterColor;
+        color = mix(color, foamColor, foam * 0.8);
+        color += specular * 1.5;
+        color = mix(color, vec3(0.9,0.95,1.0), fresnel * 0.6);
+
+        gl_FragColor = vec4(color, 0.96);
+      }
+    `,
+    side: THREE.DoubleSide,
+    transparent: true
+  });
+
+  ocean = new THREE.Mesh(oceanGeometry, oceanMaterial);
+  scene.add(ocean);
+
+  // ------------------- GUI 控制 -------------------
+  const gui = {
+    wind: document.getElementById('wind'),
+    height: document.getElementById('height'),
+    sun: document.getElementById('sun'),
+    windVal: document.getElementById('windVal'),
+    heightVal: document.getElementById('heightVal'),
+    sunVal: document.getElementById('sunVal')
+  };
+
+  gui.wind.oninput = () => {
+    oceanMaterial.uniforms.uWind.value = gui.wind.value;
+    gui.windVal.textContent = gui.wind.value;
+  };
+  gui.height.oninput = () => {
+    oceanMaterial.uniforms.uHeight.value = gui.height.value;
+    gui.heightVal.textContent = gui.height.value;
+  };
+  gui.sun.oninput = () => {
+    const elev = gui.sun.value * Math.PI / 180;
+    const dir = new THREE.Vector3(Math.sin(elev), Math.cos(elev), 0.5).normalize();
+    oceanMaterial.uniforms.uSunDirection.value = dir;
+    gui.sunVal.textContent = gui.sun.value;
+  };
+
+  // 窗口自适应
+  window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  ocean.material.uniforms.uTime.value += 0.01;
+  renderer.render(scene, camera);
+}
+</script>
+</body>
+</html>

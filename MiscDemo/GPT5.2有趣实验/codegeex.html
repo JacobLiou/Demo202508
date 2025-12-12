@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海浪模拟</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+            background: linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%);
+        }
+
+        #canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .controls {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            min-width: 280px;
+            backdrop-filter: blur(10px);
+        }
+
+        .controls h3 {
+            margin-bottom: 20px;
+            color: #2c3e50;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #34495e;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .control-group input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #ddd;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #4CAF50;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .control-group input[type="range"]::-webkit-slider-thumb:hover {
+            background: #45a049;
+        }
+
+        .value-display {
+            display: inline-block;
+            margin-left: 8px;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .info {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            font-size: 14px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        @media (max-width: 768px) {
+            .controls {
+                top: 10px;
+                right: 10px;
+                padding: 15px;
+                min-width: 240px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div class="controls">
+        <h3>海浪控制面板</h3>
+        
+        <div class="control-group">
+            <label>
+                风速
+                <span class="value-display" id="windSpeedValue">5</span>
+            </label>
+            <input type="range" id="windSpeed" min="0" max="20" value="5" step="0.5">
+        </div>
+        
+        <div class="control-group">
+            <label>
+                浪高
+                <span class="value-display" id="waveHeightValue">1.0</span>
+            </label>
+            <input type="range" id="waveHeight" min="0.1" max="3" value="1" step="0.1">
+        </div>
+        
+        <div class="control-group">
+            <label>
+                光照强度
+                <span class="value-display" id="lightIntensityValue">1.0</span>
+            </label>
+            <input type="range" id="lightIntensity" min="0.1" max="2" value="1" step="0.1">
+        </div>
+    </div>
+    
+    <div class="info">
+        使用鼠标拖动可以改变视角
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        
+        // 顶点着色器源码
+        const vertexShaderSource = `
+            attribute vec2 a_position;
+            uniform float u_time;
+            uniform float u_windSpeed;
+            uniform float u_waveHeight;
+            varying vec2 v_position;
+            varying float v_height;
+            
+            void main() {
+                v_position = a_position;
+                
+                float wave1 = sin(a_position.x * 2.0 + u_time * u_windSpeed) * 0.3;
+                float wave2 = sin(a_position.x * 3.0 + u_time * u_windSpeed * 0.8) * 0.2;
+                float wave3 = sin(a_position.x * 5.0 + u_time * u_windSpeed * 1.2) * 0.1;
+                
+                v_height = (wave1 + wave2 + wave3) * u_waveHeight;
+                
+                gl_Position = vec4(a_position.x, v_height, a_position.y, 1.0);
+            }
+        `;
+        
+        // 片段着色器源码
+        const fragmentShaderSource = `
+            precision mediump float;
+            uniform float u_lightIntensity;
+            varying vec2 v_position;
+            varying float v_height;
+            
+            void main() {
+                vec3 deepWater = vec3(0.0, 0.3, 0.5);
+                vec3 shallowWater = vec3(0.0, 0.6, 0.8);
+                vec3 foam = vec3(0.9, 0.95, 1.0);
+                
+                float heightFactor = (v_height + 1.0) * 0.5;
+                vec3 color = mix(deepWater, shallowWater, heightFactor);
+                
+                if (v_height > 0.7) {
+                    color = mix(color, foam, (v_height - 0.7) * 3.0);
+                }
+                
+                color *= u_lightIntensity;
+                
+                gl_FragColor = vec4(color, 1.0);
+            }
+        `;
+        
+        // 创建着色器
+        function createShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('着色器编译错误:', gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            
+            return shader;
+        }
+        
+        // 创建着色器程序
+        function createProgram(gl, vertexShader, fragmentShader) {
+            const program = gl.createProgram();
+            gl.attachShader(program, vertexShader);
+            gl.attachShader(program, fragmentShader);
+            gl.linkProgram(program);
+            
+            if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+                console.error('程序链接错误:', gl.getProgramInfoLog(program));
+                gl.deleteProgram(program);
+                return null;
+            }
+            
+            return program;
+        }
+        
+        // 初始化着色器
+        const vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShaderSource);
+        const fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShaderSource);
+        const program = createProgram(gl, vertexShader, fragmentShader);
+        
+        // 获取attribute和uniform位置
+        const positionAttributeLocation = gl.getAttribLocation(program, 'a_position');
+        const timeUniformLocation = gl.getUniformLocation(program, 'u_time');
+        const windSpeedUniformLocation = gl.getUniformLocation(program, 'u_windSpeed');
+        const waveHeightUniformLocation = gl.getUniformLocation(program, 'u_waveHeight');
+        const lightIntensityUniformLocation = gl.getUniformLocation(program, 'u_lightIntensity');
+        
+        // 创建顶点缓冲区
+        const positionBuffer = gl.createBuffer();
+        
+        // 生成网格顶点
+        function generateGrid(size, segments) {
+            const vertices = [];
+            const step = size / segments;
+            
+            for (let i = 0; i <= segments; i++) {
+                for (let j = 0; j <= segments; j++) {
+                    const x = (i - segments / 2) * step;
+                    const y = (j - segments / 2) * step;
+                    vertices.push(x, y);
+                }
+            }
+            
+            return new Float32Array(vertices);
+        }
+        
+        // 生成网格索引
+        function generateIndices(segments) {
+            const indices = [];
+            
+            for (let i = 0; i < segments; i++) {
+                for (let j = 0; j < segments; j++) {
+                    const a = i * (segments + 1) + j;
+                    const b = a + 1;
+                    const c = a + segments + 1;
+                    const d = c + 1;
+                    
+                    indices.push(a, b, c);
+                    indices.push(b, d, c);
+                }
+            }
+            
+            return new Uint16Array(indices);
+        }
+        
+        const vertices = generateGrid(10, 100);
+        const indices = generateIndices(100);
+        
+        // 创建索引缓冲区
+        const indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+        
+        // 设置顶点数据
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+        
+        // 调整画布大小
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            gl.viewport(0, 0, canvas.width, canvas.height);
+        }
+        
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+        
+        // 控制变量
+        let windSpeed = 5;
+        let waveHeight = 1.0;
+        let lightIntensity = 1.0;
+        let startTime = Date.now();
+        
+        // 更新控制器值
+        document.getElementById('windSpeed').addEventListener('input', (e) => {
+            windSpeed = parseFloat(e.target.value);
+            document.getElementById('windSpeedValue').textContent = windSpeed.toFixed(1);
+        });
+        
+        document.getElementById('waveHeight').addEventListener('input', (e) => {
+            waveHeight = parseFloat(e.target.value);
+            document.getElementById('waveHeightValue').textContent = waveHeight.toFixed(1);
+        });
+        
+        document.getElementById('lightIntensity').addEventListener('input', (e) => {
+            lightIntensity = parseFloat(e.target.value);
+            document.getElementById('lightIntensityValue').textContent = lightIntensity.toFixed(1);
+        });
+        
+        // 渲染循环
+        function render() {
+            // 清除画布
+            gl.clearColor(0.5, 0.7, 0.8, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.enable(gl.DEPTH_TEST);
+            
+            // 使用着色器程序
+            gl.useProgram(program);
+            
+            // 设置顶点属性
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.enableVertexAttribArray(positionAttributeLocation);
+            gl.vertexAttribPointer(positionAttributeLocation, 2, gl.FLOAT, false, 0, 0);
+            
+            // 设置uniform变量
+            const time = (Date.now() - startTime) * 0.001;
+            gl.uniform1f(timeUniformLocation, time);
+            gl.uniform1f(windSpeedUniformLocation, windSpeed);
+            gl.uniform1f(waveHeightUniformLocation, waveHeight);
+            gl.uniform1f(lightIntensityUniformLocation, lightIntensity);
+            
+            // 绘制
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+            gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+            
+            requestAnimationFrame(render);
+        }
+        
+        // 启动渲染
+        render();
+    </script>
+</body>
+</html>

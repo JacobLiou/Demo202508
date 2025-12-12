@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>海浪模拟</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dat.gui@0.7.7/build/dat.gui.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+            height: 100vh;
+            color: #e0f7fa;
+            position: relative;
+        }
+        
+        #canvas-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .interface {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(10, 30, 45, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 16px;
+            padding: 20px;
+            width: 300px;
+            box-shadow: 0 8px 32px rgba(0, 30, 60, 0.5);
+            border: 1px solid rgba(100, 180, 255, 0.2);
+            z-index: 100;
+            transition: all 0.4s ease;
+        }
+        
+        .interface:hover {
+            background: rgba(15, 40, 65, 0.92);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 40px rgba(0, 40, 80, 0.6);
+        }
+        
+        .title {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #4fc3f7;
+            font-size: 1.8rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-shadow: 0 0 10px rgba(79, 195, 247, 0.5);
+        }
+        
+        .control-group {
+            margin-bottom: 15px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid rgba(100, 180, 255, 0.3);
+        }
+        
+        .control-group:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+        
+        .control-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #81d4fa;
+            font-size: 0.95rem;
+        }
+        
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: rgba(100, 180, 255, 0.3);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4fc3f7;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(79, 195, 247, 0.7);
+            transition: all 0.3s ease;
+        }
+        
+        .slider::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            background: #29b6f6;
+        }
+        
+        .slider::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #4fc3f7;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 0 10px rgba(79, 195, 247, 0.7);
+            transition: all 0.3s ease;
+        }
+        
+        .slider-value {
+            text-align: right;
+            font-size: 0.85rem;
+            color: #b3e5fc;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+        
+        .footer {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: rgba(179, 229, 252, 0.7);
+            font-size: 0.9rem;
+            padding: 0 20px;
+            text-shadow: 0 0 5px rgba(0, 30, 60, 0.8);
+        }
+        
+        .footer a {
+            color: #4fc3f7;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        .footer a:hover {
+            color: #29b6f6;
+            text-shadow: 0 0 8px rgba(79, 195, 247, 0.8);
+        }
+        
+        .hint {
+            position: absolute;
+            bottom: 70px;
+            left: 0;
+            width: 100%;
+            text-align: center;
+            color: rgba(179, 229, 252, 0.8);
+            font-size: 1.1rem;
+            font-style: italic;
+            opacity: 0.9;
+            text-shadow: 0 0 10px rgba(0, 30, 60, 0.9);
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+        
+        .wave-stats {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: #81d4fa;
+        }
+        
+        .stats-item {
+            background: rgba(20, 50, 80, 0.6);
+            padding: 4px 8px;
+            border-radius: 8px;
+            flex: 1;
+            margin: 0 3px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+    
+    <div class="interface">
+        <h1 class="title">🌊 海浪模拟</h1>
+        
+        <div class="control-group">
+            <span class="control-label">风速</span>
+            <input type="range" min="0.1" max="5" value="1.5" step="0.1" class="slider" id="wind-speed">
+            <div class="slider-value">风速: <span id="wind-value">1.5</span> m/s</div>
+        </div>
+        
+        <div class="control-group">
+            <span class="control-label">浪高</span>
+            <input type="range" min="0.1" max="3" value="0.8" step="0.1" class="slider" id="wave-height">
+            <div class="slider-value">浪高: <span id="height-value">0.8</span> m</div>
+        </div>
+        
+        <div class="control-group">
+            <span class="control-label">光照强度</span>
+            <input type="range" min="0.2" max="1.5" value="0.9" step="0.1" class="slider" id="light-intensity">
+            <div class="slider-value">光照: <span id="light-value">0.9</span></div>
+        </div>
+        
+        <div class="wave-stats">
+            <div class="stats-item">周期: <span id="period-value">2.5</span>s</div>
+            <div class="stats-item">方向: <span id="direction-value">135°</span></div>
+            <div class="stats-item">深度: <span id="depth-value">150</span>m</div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        创造宁静时刻 · 使用Three.js实现 · 轻触界面可暂停/继续动画
+    </div>
+    
+    <div class="hint">调整参数感受海洋的呼吸</div>
+
+    <script>
+        // 主应用程序
+        class OceanSimulator {
+            constructor() {
+                this.scene = null;
+                this.camera = null;
+                this.renderer = null;
+                this.water = null;
+                this.sun = null;
+                this.animationId = null;
+                this.isAnimating = true;
+                this.params = {
+                    windSpeed: 1.5,
+                    waveHeight: 0.8,
+                    lightIntensity: 0.9,
+                    waterColor: new THREE.Color(0x005588),
+                    sunColor: new THREE.Color(0xffeecc),
+                    size: 1000
+                };
+                this.stats = {
+                    period: 2.5,
+                    direction: 135,
+                    depth: 150
+                };
+                
+                this.init();
+                this.setupEventListeners();
+                this.animate();
+            }
+            
+            init() {
+                // 创建场景
+                this.scene = new THREE.Scene();
+                this.scene.fog = new THREE.Fog(0x0a1525, 500, 2000);
+                
+                // 创建相机
+                this.camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 1, 10000);
+                this.camera.position.set(0, 75, 350);
+                this.camera.lookAt(0, 0, 0);
+                
+                // 创建渲染器
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(window.innerWidth, window.innerHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+                this.renderer.toneMappingExposure = 1.2;
+                document.getElementById('canvas-container').appendChild(this.renderer.domElement);
+                
+                // 添加环境光
+                const ambientLight = new THREE.AmbientLight(0xaaaaaa, 0.4);
+                this.scene.add(ambientLight);
+                
+                // 创建太阳（方向光）
+                this.sun = new THREE.DirectionalLight(0xffffff, this.params.lightIntensity);
+                this.sun.position.set(300, 400, 200);
+                this.sun.target.position.set(0, 0, 0);
+                this.scene.add(this.sun);
+                this.scene.add(this.sun.target);
+                
+                // 创建水体
+                this.createWater();
+                
+                // 添加海岸线（简化版）
+                this.createCoastline();
+                
+                // 添加天空盒
+                this.createSky();
+                
+                // 添加背景星星
+                this.createStars();
+            }
+            
+            createWater() {
+                // 创建平面几何体
+                const geometry = new THREE.PlaneGeometry(this.params.size, this.params.size, 256, 256);
+                geometry.rotateX(-Math.PI / 2);
+                
+                // 创建水材质
+                const water = new THREE.Mesh(
+                    geometry,
+                    new THREE.MeshPhongMaterial({
+                        color: this.params.waterColor,
+                        specular: new THREE.Color(0x2277aa),
+                        shininess: 80,
+                        transparent: true,
+                        opacity: 0.92,
+                        side: THREE.DoubleSide,
+                        flatShading: false
+                    })
+                );
+                
+                // 应用初始波浪
+                this.applyWaveDeformation(water, this.params.windSpeed, this.params.waveHeight);
+                
+                this.scene.add(water);
+                this.water = water;
+            }
+            
+            applyWaveDeformation(mesh, windSpeed, waveHeight) {
+                const positions = mesh.geometry.attributes.position;
+                const time = Date.now() * 0.001;
+                
+                for (let i = 0; i < positions.count; i++) {
+                    const x = positions.getX(i);
+                    const z = positions.getZ(i);
+                    
+                    // 多层波浪叠加
+                    let y = 0;
+                    
+                    // 主波浪
+                    y += Math.sin((x * 0.01 + time * windSpeed * 0.3) + (z * 0.005)) * waveHeight * 0.6;
+                    
+                    // 次级波浪
+                    y += Math.sin((z * 0.015 + time * windSpeed * 0.5) + (x * 0.003)) * waveHeight * 0.3;
+                    
+                    // 微波
+                    y += Math.sin((x * 0.05 + z * 0.05 + time * windSpeed * 1.2)) * waveHeight * 0.15;
+                    
+                    positions.setY(i, y);
+                }
+                
+                positions.needsUpdate = true;
+                
+                // 更新法线
+                mesh.geometry.computeVertexNormals();
+            }
+            
+            createCoastline() {
+                // 创建简化海岸线
+                const coastGeometry = new THREE.PlaneGeometry(this.params.size * 1.2, 120, 64, 64);
+                coastGeometry.rotateX(-Math.PI / 2);
+                coastGeometry.translate(0, -0.1, -this.params.size/2 + 60);
+                
+                const coastMaterial = new THREE.MeshPhongMaterial({
+                    color: new THREE.Color(0x2a3f4f),
+                    specular: new THREE.Color(0x3a5f7f),
+                    shininess: 20,
+                    side: THREE.DoubleSide
+                });
+                
+                const coast = new THREE.Mesh(coastGeometry, coastMaterial);
+                this.scene.add(coast);
+                
+                // 添加沙滩
+                const sandGeometry = new THREE.PlaneGeometry(this.params.size * 1.2, 40, 32, 32);
+                sandGeometry.rotateX(-Math.PI / 2);
+                sandGeometry.translate(0, -0.15, -this.params.size/2 + 100);
+                
+                const sandMaterial = new THREE.MeshPhongMaterial({
+                    color: new THREE.Color(0xc19a6b),
+                    specular: new THREE.Color(0xd4b08c),
+                    shininess: 15,
+                    side: THREE.DoubleSide
+                });
+                
+                const sand = new THREE.Mesh(sandGeometry, sandMaterial);
+                this.scene.add(sand);
+            }
+            
+            createSky() {
+                // 创建渐变天空
+                const skyGeometry = new THREE.SphereGeometry(3000, 32, 16);
+                skyGeometry.scale(-1, 1, 1);
+                
+                const skyMaterial = new THREE.ShaderMaterial({
+                    uniforms: {
+                        topColor: { value: new THREE.Color(0x0a1d35) },
+                        bottomColor: { value: new THREE.Color(0x1a4b77) },
+                        offset: { value: 500 },
+                        exponent: { value: 1.0 }
+                    },
+                    vertexShader: `
+                        varying vec3 vWorldPosition;
+                        
+                        void main() {
+                            vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                            vWorldPosition = worldPosition.xyz;
+                            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                        }
+                    `,
+                    fragmentShader: `
+                        uniform vec3 topColor;
+                        uniform vec3 bottomColor;
+                        uniform float offset;
+                        uniform float exponent;
+                        
+                        varying vec3 vWorldPosition;
+                        
+                        void main() {
+                            float h = normalize(vWorldPosition + offset).y;
+                            gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(h, exponent), 0.0)), 1.0);
+                        }
+                    `,
+                    side: THREE.BackSide
+                });
+                
+                const sky = new THREE.Mesh(skyGeometry, skyMaterial);
+                this.scene.add(sky);
+            }
+            
+            createStars() {
+                const starsGeometry = new THREE.BufferGeometry();
+                const starsMaterial = new THREE.PointsMaterial({
+                    color: 0xffffff,
+                    size: 0.8,
+                    sizeAttenuation: true
+                });
+                
+                const starsVertices = [];
+                for (let i = 0; i < 2000; i++) {
+                    const x = (Math.random() - 0.5) * 4000;
+                    const y = (Math.random() * 0.5 + 0.5) * 2000;
+                    const z = (Math.random() - 0.5) * 4000;
+                    starsVertices.push(x, y, z);
+                }
+                
+                starsGeometry.setAttribute('position', new THREE.Float32BufferAttribute(starsVertices, 3));
+                const stars = new THREE.Points(starsGeometry, starsMaterial);
+                this.scene.add(stars);
+            }
+            
+            updateWater() {
+                if (!this.water) return;
+                
+                // 更新波浪
+                this.applyWaveDeformation(this.water, this.params.windSpeed, this.params.waveHeight);
+                
+                // 更新光照
+                this.sun.intensity = this.params.lightIntensity;
+                this.sun.color.copy(this.params.sunColor);
+                
+                // 更新水体颜色 - 根据浪高和风速变化
+                const baseColor = new THREE.Color(0x005588);
+                const foamColor = new THREE.Color(0x88ccff);
+                
+                // 颜色随浪高变化
+                const heightFactor = Math.min(this.params.waveHeight / 3, 1);
+                this.water.material.color.copy(baseColor.lerp(foamColor, heightFactor * 0.4));
+                
+                // 透明度随风速变化
+                const windFactor = Math.min(this.params.windSpeed / 5, 1);
+                this.water.material.opacity = 0.92 - windFactor * 0.2;
+            }
+            
+            updateStats() {
+                // 动态更新统计信息
+                this.stats.period = (2.0 + this.params.windSpeed * 0.6).toFixed(1);
+                this.stats.direction = (120 + this.params.windSpeed * 20).toFixed(0);
+                this.stats.depth = (100 + this.params.waveHeight * 80).toFixed(0);
+                
+                document.getElementById('period-value').textContent = this.stats.period;
+                document.getElementById('direction-value').textContent = this.stats.direction;
+                document.getElementById('depth-value').textContent = this.stats.depth;
+            }
+            
+            animate() {
+                if (this.isAnimating) {
+                    requestAnimationFrame(() => this.animate());
+                    
+                    // 更新水体
+                    this.updateWater();
+                    
+                    // 旋转相机缓慢环绕
+                    const time = Date.now() * 0.0002;
+                    this.camera.position.x = Math.sin(time) * 300;
+                    this.camera.position.z = Math.cos(time) * 300;
+                    this.camera.lookAt(0, 20, 0);
+                    
+                    // 更新太阳位置（缓慢移动）
+                    const sunTime = Date.now() * 0.00005;
+                    this.sun.position.x = Math.sin(sunTime) * 600;
+                    this.sun.position.z = Math.cos(sunTime) * 600;
+                    this.sun.position.y = 300 + Math.sin(sunTime * 0.7) * 100;
+                }
+                
+                this.renderer.render(this.scene, this.camera);
+            }
+            
+            setupEventListeners() {
+                // 风速控制
+                document.getElementById('wind-speed').addEventListener('input', (e) => {
+                    this.params.windSpeed = parseFloat(e.target.value);
+                    document.getElementById('wind-value').textContent = this.params.windSpeed.toFixed(1);
+                    this.updateStats();
+                });
+                
+                // 浪高控制
+                document.getElementById('wave-height').addEventListener('input', (e) => {
+                    this.params.waveHeight = parseFloat(e.target.value);
+                    document.getElementById('height-value').textContent = this.params.waveHeight.toFixed(1);
+                    this.updateStats();
+                });
+                
+                // 光照控制
+                document.getElementById('light-intensity').addEventListener('input', (e) => {
+                    this.params.lightIntensity = parseFloat(e.target.value);
+                    document.getElementById('light-value').textContent = this.params.lightIntensity.toFixed(1);
+                });
+                
+                // 点击界面暂停/继续
+                document.querySelector('.interface').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+                
+                document.body.addEventListener('click', () => {
+                    this.isAnimating = !this.isAnimating;
+                    if (this.isAnimating) {
+                        this.animate();
+                    }
+                });
+                
+                // 窗口大小调整
+                window.addEventListener('resize', () => {
+                    this.camera.aspect = window.innerWidth / window.innerHeight;
+                    this.camera.updateProjectionMatrix();
+                    this.renderer.setSize(window.innerWidth, window.innerHeight);
+                });
+            }
+        }
+        
+        // 页面加载完成后初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            // 添加平滑滚动
+            document.documentElement.style.scrollBehavior = 'smooth';
+            
+            // 初始化模拟器
+            const simulator = new OceanSimulator();
+            
+            // 添加动态背景效果
+            const addParticleEffect = () => {
+                const container = document.body;
+                const particleCount = 20;
+                
+                for (let i = 0; i < particleCount; i++) {
+                    const particle = document.createElement('div');
+                    particle.className = 'particle';
+                    
+                    // 随机大小
+                    const size = Math.random() * 8 + 2;
+                    particle.style.width = `${size}px`;
+                    particle.style.height = `${size}px`;
+                    
+                    // 随机位置
+                    particle.style.left = `${Math.random() * 100}%`;
+                    particle.style.top = `${Math.random() * 100}%`;
+                    
+                    // 随机透明度
+                    particle.style.opacity = Math.random() * 0.6 + 0.1;
+                    
+                    // 动画持续时间
+                    const duration = Math.random() * 20 + 10;
+                    particle.style.animation = `float ${duration}s linear infinite`;
+                    
+                    // 延迟
+                    particle.style.animationDelay = `${Math.random() * 5}s`;
+                    
+                    container.appendChild(particle);
+                    
+                    // 添加关键帧动画
+                    const style = document.createElement('style');
+                    style.innerHTML = `
+                        @keyframes float {
+                            0% { transform: translateY(0) translateX(0); opacity: ${particle.style.opacity}; }
+                            33% { transform: translateY(-20px) translateX(10px); opacity: ${parseFloat(particle.style.opacity) + 0.2}; }
+                            66% { transform: translateY(-40px) translateX(-5px); opacity: ${parseFloat(particle.style.opacity) + 0.1}; }
+                            100% { transform: translateY(-80px) translateX(0); opacity: 0; }
+                        }
+                    `;
+                    document.head.appendChild(style);
+                }
+            };
+            
+            // 添加粒子效果
+            addParticleEffect();
+            
+            // 欢迎消息
+            setTimeout(() => {
+                document.querySelector('.hint').textContent = '宁静的海浪，抚慰心灵的波纹';
+                document.querySelector('.hint').style.animation = 'fadeIn 2s ease-in-out';
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
