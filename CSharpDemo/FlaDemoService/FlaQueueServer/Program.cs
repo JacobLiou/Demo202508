@@ -35,6 +35,7 @@ try
     var server = new TcpServer(cfg.ListenPort, queue);
 
     Task serverTask, workerTask;
+
     // 启动服务与后台Worker
     if (cfg.RunMode.Equals("mock", StringComparison.OrdinalIgnoreCase))
     {

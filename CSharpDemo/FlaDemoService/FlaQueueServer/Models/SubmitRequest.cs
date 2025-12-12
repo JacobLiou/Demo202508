@@ -1,7 +1,7 @@
 ﻿namespace FlaQueueServer.Models
 {
     public record SubmitRequest(
-        string? Op,
+        string? Command,
         int Channel,
         string Mode,
         Dictionary<string, string>? Params

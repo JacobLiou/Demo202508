@@ -144,9 +144,9 @@ static void HandleServerMessage(int clientId, string line, ConcurrentDictionary<
     {
         using var doc = JsonDocument.Parse(line);
         var root = doc.RootElement;
-        var op = root.TryGetProperty("op", out var vop) ? vop.GetString() : "";
+        var command = root.TryGetProperty("command", out var vop) ? vop.GetString() : "";
 
-        switch (op)
+        switch (command)
         {
             case "ack":
                 var taskIdAck = root.GetProperty("taskId").GetString();
@@ -216,7 +216,7 @@ static (string payload, string taskIdHint) BuildSubmitPayload(int clientId, int 
         var xc = (rand.NextDouble() * 30).ToString("F1");     // 0.0 ~ 30.0
         var payloadObj = new
         {
-            op = "submit",
+            command = "submit",
             channel,
             mode = "scan",
             @params = new { sr_mode = sr, gain, wr_len = wr, x_center = xc }
@@ -234,7 +234,7 @@ static (string payload, string taskIdHint) BuildSubmitPayload(int clientId, int 
         var sn = $"SN{clientId}A{seq}";
         var payloadObj = new
         {
-            op = "submit",
+            command = "submit",
             channel,
             mode = "auto_peak",
             @params = new { start_m = start, end_m = end, count_mode = "2", algo = "2", width_m = width, threshold_db = thr, id, sn }

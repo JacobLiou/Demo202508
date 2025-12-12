@@ -79,18 +79,18 @@ namespace FlaQueueServer.Core
                     }
                     catch (Exception ex)
                     {
-                        await session.SendAsync(new { op = "error", message = "invalid json", detail = ex.Message }, ct);
+                        await session.SendAsync(new { Command = "error", message = "invalid json", detail = ex.Message }, ct);
                         Log.Error($"invalid json error: {ex.Message}");
                         continue;
                     }
 
-                    if (req?.Op is null)
+                    if (req?.Command is null)
                     {
-                        await session.SendAsync(new { op = "error", message = "missing op" }, ct);
+                        await session.SendAsync(new { Command = "error", message = "missing op" }, ct);
                         continue;
                     }
 
-                    switch (req.Op.ToLowerInvariant())
+                    switch (req.Command.ToLowerInvariant())
                     {
                         case "submit":
                             var taskId = $"T{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString()[..8]}";
@@ -104,8 +104,16 @@ namespace FlaQueueServer.Core
                             await session.SendAsync(new StatusMessage("status", tId, "queued"), ct);
                             break;
 
+                        case "result":
+                            var qTID = req.Params != null && req.Params.TryGetValue("taskId", out var qTId) ? qTId : "";
+                            if (DailyResultStore.Instance.TryGet(qTID, out var result))
+                                await session.SendAsync(result!, ct);
+                            else
+                                await session.SendAsync(new ResultMessage("result", qTID, false, null, "Still Runing Use status to query"), ct);
+                            break;
+
                         default:
-                            await session.SendAsync(new { op = "error", message = "unknown op" }, ct);
+                            await session.SendAsync(new { command = "error", message = "unknown command" }, ct);
                             break;
                     }
                 }

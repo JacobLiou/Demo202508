@@ -23,33 +23,30 @@ dotnet run -- 5800
 ### 客户端 → 服务端
 - 提交任务
 ```json
-{"op":"submit","channel":3,"mode":"scan","params":{"wr_len":"12.55","x_center":"005.1"}}
+{"command":"submit","channel":3,"mode":"scan","params":{"wr_len":"12.55","x_center":"005.1"}}
 ```
-- 心跳
+
+- 查询状态
 ```json
-{"op":"ping"}
-```
-- 查询状态（演示版）
-```json
-{"op":"status","params":{"taskId":"T2025..."}}
+{"command":"status","params":{"taskId":"T2025..."}}
 ```
 
 ### 服务端 → 客户端
 - 欢迎
 ```json
-{"op":"hello","message":"FlaQueueServer ready"}
+{"command":"hello","message":"FlaQueueServer ready"}
 ```
 - ACK
 ```json
-{"op":"ack","taskId":"T2025..."}
+{"command":"ack","taskId":"T2025..."}
 ```
 - STATUS
 ```json
-{"op":"status","taskId":"T2025...","status":"running"}
+{"command":"status","taskId":"T2025...","status":"running"}
 ```
 - RESULT
 ```json
-{"op":"result","taskId":"T2025...","success":true,
+{"command":"result","taskId":"T2025...","success":true,
  "data":{"channel":3,"mode":"scan","peak_pos_m":13.226,"peak_db":-47.820,"length_m":24.98}}
 ```
 
@@ -58,7 +55,7 @@ dotnet run -- 5800
 # 连接
 nc 127.0.0.1 5600
 # 发送提交
-{"op":"submit","channel":1,"mode":"auto_peak","params":{"start_m":"0.5","end_m":"25"}}
+{"command":"submit","channel":1,"mode":"auto_peak","params":{"start_m":"0.5","end_m":"25"}}
 ```
 
 ## 结构

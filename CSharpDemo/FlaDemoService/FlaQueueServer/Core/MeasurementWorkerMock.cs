@@ -77,13 +77,17 @@ namespace FlaQueueServer.Core
                         throw new Exception($"unknown mode {task.Mode}");
                     }
 
-                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, true, data, null), ct);
+                    var result = new ResultMessage("result", task.TaskId, true, data, null);
+                    await _server.SendResultAsync(task, result, ct);
                     Log.Information("[MOCK] Task success {TaskId}", task.TaskId);
+                    DailyResultStore.Instance.AddOrUpdate(task.TaskId, result);
                 }
                 catch (Exception ex)
                 {
-                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, false, null, ex.Message), ct);
+                    var failResult = new ResultMessage("result", task.TaskId, false, null, ex.Message);
+                    await _server.SendResultAsync(task, failResult, ct);
                     Log.Error(ex, "[MOCK] Task failed {TaskId}", task.TaskId);
+                    DailyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
                 }
                 finally
                 {
