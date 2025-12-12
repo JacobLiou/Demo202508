@@ -3,7 +3,9 @@ using System.IO.Ports;
 
 namespace FlaQueueServer
 {
-    // ======================= 光开关控制器（RS232 协议） =======================
+    /// <summary>
+    /// 光开关控制器（RS232 协议）
+    /// </summary>
     public class OpticalSwitchController : IDisposable
     {
         private readonly string _portName;
@@ -11,6 +13,8 @@ namespace FlaQueueServer
         private readonly int _switchIndex;
         private readonly int _inputChannel;
         private readonly SerialPort _port;
+
+        private readonly ILogger Log = Serilog.Log.ForContext<OpticalSwitchController>();
 
         public OpticalSwitchController(string portName, int baud, int switchIndex, int inputChannel)
         {
@@ -57,6 +61,7 @@ namespace FlaQueueServer
             Task.Run(() =>
             {
                 _port.Write(cmd);
+                Log.Debug($"Write {cmd}");
             }, ct);
 
         private Task<string?> ReadLineAsync(CancellationToken ct) =>
@@ -82,8 +87,17 @@ namespace FlaQueueServer
 
         public void Dispose()
         {
-            try { _port?.Close(); } catch { }
-            try { _port?.Dispose(); } catch { }
+            try
+            {
+                _port?.Close();
+            }
+            catch { }
+
+            try
+            {
+                _port?.Dispose();
+            }
+            catch { }
         }
     }
 }

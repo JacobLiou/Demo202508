@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using Serilog;
+using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading.Channels;
@@ -14,33 +15,58 @@ namespace FlaQueueServer
         private readonly object _lock = new();
 
         public TcpServer(int port, Channel<MeasureTask> queue)
-        { _port = port; _queue = queue; }
+        {
+            _port = port;
+            _queue = queue;
+        }
 
         public async Task StartAsync(CancellationToken ct)
         {
             _listener = new TcpListener(IPAddress.Any, _port);
             _listener.Start();
+
             while (!ct.IsCancellationRequested)
             {
                 TcpClient? client = null;
-                try { client = await _listener.AcceptTcpClientAsync(ct); }
-                catch (OperationCanceledException) { break; }
-                catch (Exception ex) { Console.WriteLine($"[Server] Accept error: {ex.Message}"); continue; }
+                try
+                {
+                    client = await _listener.AcceptTcpClientAsync(ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    Log.Error($"OperationCanceledException");
+                    break;
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Server] Accept error: {ex.Message}");
+                    Log.Error($"[Server] Accept error: {ex.Message}");
+                    continue;
+                }
 
                 var session = new ClientSession(client);
-                lock (_lock) _sessions.Add(session);
+                lock (_lock)
+                    _sessions.Add(session);
+
                 Console.WriteLine($"[Server] Client connected: {session.RemoteEndPoint}");
+                Log.Information($"[Server] Client connected: {session.RemoteEndPoint}"");
                 _ = HandleClientAsync(session, ct);
             }
 
-            try { _listener?.Stop(); } catch { }
+            try
+            {
+                _listener?.Stop();
+            }
+            catch
+            {
+            }
         }
 
         private async Task HandleClientAsync(ClientSession session, CancellationToken ct)
         {
             try
             {
-                await session.SendAsync(new { op = "hello", message = "FlaQueueServer_FLA ready" }, ct);
+                await session.SendAsync(new { op = "hello", message = "FlaQueueServer ready" }, ct);
                 while (!ct.IsCancellationRequested && session.Connected)
                 {
                     var line = await session.ReadLineAsync(ct);
@@ -55,6 +81,7 @@ namespace FlaQueueServer
                     catch (Exception ex)
                     {
                         await session.SendAsync(new { op = "error", message = "invalid json", detail = ex.Message }, ct);
+                        Log.Error($"invalid json error: {ex.Message}");
                         continue;
                     }
 
@@ -66,10 +93,6 @@ namespace FlaQueueServer
 
                     switch (req.Op.ToLowerInvariant())
                     {
-                        case "ping":
-                            await session.SendAsync(new { op = "pong" }, ct);
-                            break;
-
                         case "submit":
                             var taskId = $"T{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString()[..8]}";
                             var task = new MeasureTask(taskId, session, req.Channel, req.Mode, req.Params ?? new(), DateTime.UtcNow);
@@ -92,12 +115,15 @@ namespace FlaQueueServer
             catch (Exception ex)
             {
                 Console.WriteLine($"[Server] Client session error: {ex.Message}");
+                Log.Error($"[Server] Client session error: {ex.Message}");
             }
             finally
             {
                 session.Close();
-                lock (_lock) _sessions.Remove(session);
+                lock (_lock)
+                    _sessions.Remove(session);
                 Console.WriteLine($"[Server] Client disconnected: {session.RemoteEndPoint}");
+                Log.Error($"[Server] Client disconnected: {session.RemoteEndPoint}");
             }
         }
 

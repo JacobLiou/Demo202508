@@ -1,3 +1,5 @@
+
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
@@ -43,6 +45,7 @@ for (int i = 1; i <= clients; i++)
 await Task.WhenAll(tasks);
 Console.WriteLine("[Mock] All clients completed.");
 
+
 // =====================================================
 
 static async Task RunClientAsync(int clientId, string host, int port, int tasksPerClient, string mode, CancellationToken ct)
@@ -55,7 +58,11 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
 
     Console.WriteLine($"[C{clientId:00}] Connected.");
 
-    // 读取欢迎消息（hello）
+    // 用于跟踪本客户端提交的任务: ack 时收集 taskId，result 时标记完成
+    var pendingTaskIds = new ConcurrentDictionary<string, byte>(); // value 不用，byte占位
+    var allResultsArrived = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    // 读取欢迎/ack/status/result 等消息
     _ = Task.Run(async () =>
     {
         try
@@ -63,16 +70,32 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
             while (!ct.IsCancellationRequested)
             {
                 var line = await reader.ReadLineAsync(ct);
-                if (line is null) break;
-                HandleServerMessage(clientId, line);
+                if (line is null) break; // 服务端断开
+                HandleServerMessage(clientId, line, pendingTaskIds);
+
+                // 如果所有提交的任务都已收到 result，则通知主循环结束
+                if (pendingTaskIds.IsEmpty && allResultsArrived.Task.Status == TaskStatus.WaitingForActivation)
+                {
+                    // 注意：只有在我们认为所有任务都已提交并且有过 ack 才能判断为空。
+                    // 这里的逻辑由主线程在提交完任务后调用 TrySignalAllSubmitted 来解锁。
+                    // 为简化，我们在主线程提交完后就“锁定”Pending集合，然后这里根据空判断。
+                }
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { Console.WriteLine($"[C{clientId:00}] Read err: {ex.Message}"); }
+        finally
+        {
+            // 如果读循环结束，但仍有未完成任务，提示异常退出
+            if (!pendingTaskIds.IsEmpty)
+                Console.WriteLine($"[C{clientId:00}] Connection closed while {pendingTaskIds.Count} task(s) still pending.");
+            allResultsArrived.TrySetResult(true);
+        }
     }, ct);
 
     var rand = new Random(unchecked(Environment.TickCount + clientId));
 
+    // 提交任务
     for (int k = 1; k <= tasksPerClient; k++)
     {
         var (payload, taskIdHint) = BuildSubmitPayload(clientId, k, mode, rand);
@@ -81,26 +104,47 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
         await Task.Delay(rand.Next(50, 200), ct); // 轻微节流
     }
 
-    // 等待一段时间让结果返回，再断开
-    await Task.Delay(3000, ct);
-    Console.WriteLine($"[C{clientId:00}] Done.");
+    // 等待所有任务的 result（成功或异常）返回后再断开
+    // 关键：我们需要在 ack 收到后将 taskId 放入 pendingTaskIds，
+    // 一旦 result 到来则从 pending 中移除；当 pending 为空即可结束。
+    // 为了避免“提交后尚未收到任何 ack 就判断空”的竞态，这里等待一个最短时间以收集 ack，
+    // 然后轮询 pending 集合直到为空。
+    var maxWaitAckMs = 200; // 适度等待 ack 进入集合
+    await Task.Delay(maxWaitAckMs, ct);
+
+    // 若服务端没有ack（协议异常），也不能永远挂死：这个场景下继续监听，
+    // 一旦服务端主动返回 result（没有ack也可以），pending不会为空，我们不结束。
+    // 因此这里用一个循环等待 pending 为空，或读循环结束（服务端断开）。
+    while (!ct.IsCancellationRequested)
+    {
+        if (pendingTaskIds.IsEmpty) break;
+        await Task.Delay(50, ct);
+    }
+
+    // 等待读线程结束（保证打印完整日志）
+    await allResultsArrived.Task;
+
+    Console.WriteLine($"[C{clientId:00}] Completed. Closing.");
 }
 
-static void HandleServerMessage(int clientId, string line)
+// 修改：HandleServerMessage 支持 ack 收集 taskId 和 result 删除 taskId
+static void HandleServerMessage(int clientId, string line, ConcurrentDictionary<string, byte> pendingTaskIds)
 {
     try
     {
         using var doc = JsonDocument.Parse(line);
         var root = doc.RootElement;
         var op = root.TryGetProperty("op", out var vop) ? vop.GetString() : "";
+
         switch (op)
         {
-            case "hello":
-                Console.WriteLine($"[C{clientId:00}] <- hello");
-                break;
-
             case "ack":
-                Console.WriteLine($"[C{clientId:00}] <- ack taskId={root.GetProperty("taskId").GetString()}");
+                var taskIdAck = root.GetProperty("taskId").GetString();
+                if (!string.IsNullOrEmpty(taskIdAck))
+                {
+                    pendingTaskIds.TryAdd(taskIdAck!, 0);
+                }
+                Console.WriteLine($"[C{clientId:00}] <- ack taskId={taskIdAck}");
                 break;
 
             case "status":
@@ -109,6 +153,12 @@ static void HandleServerMessage(int clientId, string line)
 
             case "result":
                 var success = root.GetProperty("success").GetBoolean();
+                string? taskIdRes = root.TryGetProperty("taskId", out var tidEl) ? tidEl.GetString() : null;
+
+                // 移除 pending
+                if (!string.IsNullOrEmpty(taskIdRes))
+                    pendingTaskIds.TryRemove(taskIdRes!, out _);
+
                 if (success)
                 {
                     var data = root.GetProperty("data");
@@ -147,12 +197,13 @@ static void HandleServerMessage(int clientId, string line)
 static (string payload, string taskIdHint) BuildSubmitPayload(int clientId, int seq, string mode, Random rand)
 {
     var channel = clientId; // 1..16 对应通道
+
     if (mode == "scan")
     {
         var sr = (rand.Next(0, 3)).ToString();          // 0/1/2
         var gain = new[] { "1", "2", "5", "10" }[rand.Next(0, 4)];
         var wr = (rand.NextDouble() * 20 + 1).ToString("F2"); // 1.00 ~ 21.00
-        var xc = (rand.NextDouble() * 30).ToString("F1");   // 0.0 ~ 30.0
+        var xc = (rand.NextDouble() * 30).ToString("F1");     // 0.0 ~ 30.0
         var payloadObj = new
         {
             op = "submit",

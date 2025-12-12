@@ -33,17 +33,46 @@ namespace FlaQueueServer
         {
             var json = JsonSerializer.Serialize(obj);
             await _writeLock.WaitAsync(ct);
-            try { await _writer.WriteLineAsync(json); }
-            catch { /* ignore */ }
-            finally { _writeLock.Release(); }
+
+            try
+            {
+                await _writer.WriteLineAsync(json);
+            }
+            catch
+            {
+                /* ignore */
+            }
+            finally
+            {
+                _writeLock.Release();
+            }
         }
 
         public void Close()
         {
-            try { _writer.Dispose(); } catch { }
-            try { _reader.Dispose(); } catch { }
-            try { _stream.Dispose(); } catch { }
-            try { _client.Close(); } catch { }
+            try
+            {
+                _writer.Dispose();
+            }
+            catch { }
+
+            try
+            {
+                _reader.Dispose();
+            }
+            catch { }
+
+            try
+            {
+                _stream.Dispose();
+            }
+            catch { }
+
+            try
+            {
+                _client.Close();
+            }
+            catch { }
         }
     }
 }
