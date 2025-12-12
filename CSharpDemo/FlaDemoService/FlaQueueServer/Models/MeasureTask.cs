@@ -1,6 +1,6 @@
 ﻿using FlaQueueServer.Core;
 
-namespace FlaQueueServer.Model
+namespace FlaQueueServer.Models
 {
     public record MeasureTask(
         string TaskId,

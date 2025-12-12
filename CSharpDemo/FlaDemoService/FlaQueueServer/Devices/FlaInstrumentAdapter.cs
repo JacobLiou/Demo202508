@@ -1,7 +1,7 @@
 ﻿using System.Net.Sockets;
 using System.Text;
 
-namespace FlaQueueServer.Device
+namespace FlaQueueServer.Devices
 {
     public class FlaInstrumentAdapter
     {
@@ -86,7 +86,6 @@ namespace FlaQueueServer.Device
             return (pos, db, idv, snv, sumDev);
         }
 
-        // ----------------- 辅助方法 -----------------
         private async Task SendAndExpectOkAsync(string cmd, CancellationToken ct)
         {
             await SendLineAsync(cmd, ct);

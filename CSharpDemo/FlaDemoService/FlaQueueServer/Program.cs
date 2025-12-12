@@ -1,7 +1,7 @@
 using FlaQueueServer;
 using FlaQueueServer.Core;
 using FlaQueueServer.Device;
-using FlaQueueServer.Model;
+using FlaQueueServer.Models;
 using Serilog;
 using Serilog.Events;
 using System.Threading.Channels;

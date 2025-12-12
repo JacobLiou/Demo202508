@@ -1,4 +1,4 @@
-﻿namespace FlaQueueServer.Model
+﻿namespace FlaQueueServer.Models
 {
     public record SubmitRequest(
         string? Op,

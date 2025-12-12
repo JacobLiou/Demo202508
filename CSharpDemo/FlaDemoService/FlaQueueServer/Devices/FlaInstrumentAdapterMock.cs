@@ -1,6 +1,6 @@
 ﻿using Serilog;
 
-namespace FlaQueueServer.Device
+namespace FlaQueueServer.Devices
 {
     public static class FlaInstrumentAdapterMock
     {

@@ -1,4 +1,4 @@
-﻿using FlaQueueServer.Model;
+﻿using FlaQueueServer.Models;
 using Serilog;
 using System.Net;
 using System.Net.Sockets;

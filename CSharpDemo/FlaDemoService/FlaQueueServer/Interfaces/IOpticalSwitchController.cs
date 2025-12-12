@@ -1,4 +1,4 @@
-﻿namespace FlaQueueServer.IDevice
+﻿namespace FlaQueueServer.Interfaces
 {
     public interface IOpticalSwitchController
     {
