@@ -116,10 +116,10 @@ namespace FlaQueueServer
             }
             finally
             {
+                Log.Information($"[Server] Client disconnected: {session.RemoteEndPoint}");
                 session.Close();
                 lock (_lock)
                     _sessions.Remove(session);
-                Log.Information($"[Server] Client disconnected: {session.RemoteEndPoint}");
             }
         }
 
