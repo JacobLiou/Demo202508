@@ -1,4 +1,3 @@
-
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
@@ -62,6 +61,9 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
     var pendingTaskIds = new ConcurrentDictionary<string, byte>(); // value 不用，byte占位
     var allResultsArrived = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
+    // flag 表示主线程已完成所有 submit
+    var allSubmitted = false;
+
     // 读取欢迎/ack/status/result 等消息
     _ = Task.Run(async () =>
     {
@@ -73,12 +75,11 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
                 if (line is null) break; // 服务端断开
                 HandleServerMessage(clientId, line, pendingTaskIds);
 
-                // 如果所有提交的任务都已收到 result，则通知主循环结束
-                if (pendingTaskIds.IsEmpty && allResultsArrived.Task.Status == TaskStatus.WaitingForActivation)
+                // 如果主线程已提交完所有任务且 pending 为空，则可以结束读取并通知主线程
+                if (allSubmitted && pendingTaskIds.IsEmpty)
                 {
-                    // 注意：只有在我们认为所有任务都已提交并且有过 ack 才能判断为空。
-                    // 这里的逻辑由主线程在提交完任务后调用 TrySignalAllSubmitted 来解锁。
-                    // 为简化，我们在主线程提交完后就“锁定”Pending集合，然后这里根据空判断。
+                    allResultsArrived.TrySetResult(true);
+                    break;
                 }
             }
         }
@@ -111,6 +112,15 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
     // 然后轮询 pending 集合直到为空。
     var maxWaitAckMs = 200; // 适度等待 ack 进入集合
     await Task.Delay(maxWaitAckMs, ct);
+
+    // 标记已提交完成，通知读线程可以在 pending 为空时结束
+    allSubmitted = true;
+
+    // 如果此时已经没有 pending，则直接设置完成，避免等待读线程再次收到消息
+    if (pendingTaskIds.IsEmpty)
+    {
+        allResultsArrived.TrySetResult(true);
+    }
 
     // 若服务端没有ack（协议异常），也不能永远挂死：这个场景下继续监听，
     // 一旦服务端主动返回 result（没有ack也可以），pending不会为空，我们不结束。

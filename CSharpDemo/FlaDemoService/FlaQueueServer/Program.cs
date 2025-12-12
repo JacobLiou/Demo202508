@@ -24,7 +24,8 @@ try
     var cts = new CancellationTokenSource();
     Console.CancelKeyPress += (s, e) =>
     {
-        e.Cancel = true; cts.Cancel(); Console.WriteLine("\n[Server] Shutting down...");
+        e.Cancel = true; cts.Cancel();
+        Log.Information("\n[Server] Shutting down...");
     };
 
     var queue = Channel.CreateUnbounded<MeasureTask>(new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
@@ -50,8 +51,8 @@ try
     }
 
     Log.Information("Server started. Waiting for tasks...");
-    Console.WriteLine($"[Server] Started on tcp://0.0.0.0:{cfg.ListenPort} | FLA @ {cfg.FlaHost}:{cfg.FlaPort}");
-    Console.WriteLine("[Server] Press Ctrl+C to exit.");
+    Log.Information($"[Server] Started on tcp://0.0.0.0:{cfg.ListenPort} | FLA @ {cfg.FlaHost}:{cfg.FlaPort}");
+    Log.Information("[Server] Press Ctrl+C to exit.");
 
     await Task.WhenAll(serverTask, workerTask);
 }

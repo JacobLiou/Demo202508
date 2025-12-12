@@ -39,7 +39,6 @@ namespace FlaQueueServer
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[Server] Accept error: {ex.Message}");
                     Log.Error($"[Server] Accept error: {ex.Message}");
                     continue;
                 }
@@ -48,7 +47,6 @@ namespace FlaQueueServer
                 lock (_lock)
                     _sessions.Add(session);
 
-                Console.WriteLine($"[Server] Client connected: {session.RemoteEndPoint}");
                 Log.Information($"[Server] Client connected: {session.RemoteEndPoint}");
                 _ = HandleClientAsync(session, ct);
             }
@@ -114,7 +112,6 @@ namespace FlaQueueServer
             catch (OperationCanceledException) { }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Server] Client session error: {ex.Message}");
                 Log.Error($"[Server] Client session error: {ex.Message}");
             }
             finally
@@ -122,7 +119,6 @@ namespace FlaQueueServer
                 session.Close();
                 lock (_lock)
                     _sessions.Remove(session);
-                Console.WriteLine($"[Server] Client disconnected: {session.RemoteEndPoint}");
                 Log.Information($"[Server] Client disconnected: {session.RemoteEndPoint}");
             }
         }
