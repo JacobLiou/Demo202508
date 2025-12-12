@@ -1,11 +1,7 @@
 ﻿using FlaQueueServer.Interfaces;
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace FlaQueueServer.Core
 {
@@ -16,7 +12,7 @@ namespace FlaQueueServer.Core
         private readonly IOpticalSwitchController _opticalSwitch;
         private readonly IFlaDeviceCommunicator _flaCommunicator;
 
-        private volatile bool _isProcessing = false; 
+        private volatile bool _isProcessing = false;
 
         public RequestQueueManager(
             IOpticalSwitchController opticalSwitch,

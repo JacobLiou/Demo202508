@@ -1,31 +1,29 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO.Ports;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace FlaQueueServer.Core
 {
-    class Qwen_FLA
+    internal class Qwen_FLA
     {
         // 配置参数
         private const int SERVER_PORT = 4300; // FLA设备的TCP端口
+
         private const string FLA_DEVICE_IP = "192.168.1.1"; // FLA设备的IP地址
         private const string SERIAL_PORT_NAME = "COM3"; // 光开关串口名称
         private const int BAUD_RATE = 9600; // 串口波特率
 
         // 全局状态
         private static TcpListener _server;
+
         private static SerialPort _serialPort;
         private static ConcurrentQueue<ClientRequest> _requestQueue = new ConcurrentQueue<ClientRequest>();
         private static bool _isProcessing = false;
         private static object _lockObject = new object();
 
-        static async Task MainFunc(string[] args)
+        private static async Task MainFunc(string[] args)
         {
             Console.WriteLine("=== Wavemeter Shared Server 启动中 ===");
             Console.WriteLine($"监听客户端连接: 0.0.0.0:{SERVER_PORT}");

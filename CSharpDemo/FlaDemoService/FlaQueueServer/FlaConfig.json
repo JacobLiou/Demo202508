@@ -3,9 +3,11 @@
   "ListenPort": 5600,
   "FlaHost": "192.168.1.1",
   "FlaPort": 4300,
+
   "SwitchCom": "COM3",
   "SwitchBaud": 115200,
   "SwitchIndex": 1,
   "SwitchInput": 1,
+
   "LogRetainedDays": 14
 }

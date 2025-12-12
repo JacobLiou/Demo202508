@@ -4,14 +4,23 @@ namespace FlaQueueServer
 {
     public class FlaConfig
     {
-        public string RunMode { get; set; } = "real"; // real | mock
+        // real | mock
+        public string RunMode { get; set; } = "real";
+
         public int ListenPort { get; set; } = 5600;
+
         public string FlaHost { get; set; } = "192.168.1.1";
+
         public int FlaPort { get; set; } = 4300;
+
         public string SwitchCom { get; set; } = "COM3";
+
         public int SwitchBaud { get; set; } = 115200;
+
         public int SwitchIndex { get; set; } = 1;
+
         public int SwitchInput { get; set; } = 1;
+
         public int LogRetainedDays { get; set; } = 14;
     }
 

@@ -6,12 +6,18 @@ namespace FlaQueueServer.Devices
     public class FlaInstrumentAdapter
     {
         private readonly string _host;
+
         private readonly int _port; // 4300
+
         private TcpClient? _client;
+
         private NetworkStream? _stream;
 
         public FlaInstrumentAdapter(string host, int port)
-        { _host = host; _port = port; }
+        {
+            _host = host;
+            _port = port;
+        }
 
         public async Task ConnectAsync(CancellationToken ct)
         {
@@ -25,8 +31,17 @@ namespace FlaQueueServer.Devices
 
         public async Task DisconnectAsync()
         {
-            try { _stream?.Dispose(); } catch { }
-            try { _client?.Close(); } catch { }
+            try
+            {
+                _stream?.Dispose();
+            }
+            catch { }
+
+            try
+            {
+                _client?.Close();
+            }
+            catch { }
         }
 
         public async Task SetResolutionAsync(string srMode, CancellationToken ct)
@@ -130,8 +145,10 @@ namespace FlaQueueServer.Devices
                     var s = Encoding.ASCII.GetString(mem.ToArray());
                     if (s.Contains(token)) return true;
                 }
+
                 await Task.Delay(50, ct);
             }
+
             return false;
         }
 
@@ -149,15 +166,19 @@ namespace FlaQueueServer.Devices
                     mem.Write(buf, 0, bangIdx);
                     break;
                 }
+
                 mem.Write(buf, 0, n);
             }
+
             return Encoding.ASCII.GetString(mem.ToArray());
         }
 
         private static string Fmt5(string raw)
         {
             var s = raw.Trim();
-            if (s.Length > 5) s = s[..5];
+            if (s.Length > 5)
+                s = s[..5];
+
             return s.PadLeft(5, '0');
         }
 
@@ -172,8 +193,10 @@ namespace FlaQueueServer.Devices
             double total = 0.0;
             foreach (var s in parts)
             {
-                foreach (var x in ExtractNumbers(s)) total += Math.Abs(x);
+                foreach (var x in ExtractNumbers(s))
+                    total += Math.Abs(x);
             }
+
             return total;
         }
 
@@ -184,9 +207,17 @@ namespace FlaQueueServer.Devices
             foreach (var ch in s)
             {
                 if (char.IsDigit(ch) || ch == '.' || ch == '-') token.Append(ch);
-                else { if (token.Length > 0 && double.TryParse(token.ToString(), out var vd)) list.Add(vd); token.Clear(); }
+                else
+                {
+                    if (token.Length > 0 && double.TryParse(token.ToString(), out var vd))
+                        list.Add(vd);
+                    token.Clear();
+                }
             }
-            if (token.Length > 0 && double.TryParse(token.ToString(), out var v)) list.Add(v);
+
+            if (token.Length > 0 && double.TryParse(token.ToString(), out var v))
+                list.Add(v);
+
             return list;
         }
     }
