@@ -1,7 +1,9 @@
-﻿using Serilog;
+﻿using FlaQueueServer.Device;
+using FlaQueueServer.Model;
+using Serilog;
 using System.Threading.Channels;
 
-namespace FlaQueueServer // 或 OTMS（按你的项目命名空间）
+namespace FlaQueueServer.Core
 {
     public class MeasurementWorker
     {
@@ -22,7 +24,7 @@ namespace FlaQueueServer // 或 OTMS（按你的项目命名空间）
         private const int RETRY_SET_MAX = 3;
 
         // SCAN/AutoPeak 测量最多重试 3 次
-        private const int RETRY_MEASURE_MAX = 3;       
+        private const int RETRY_MEASURE_MAX = 3;
 
         private static readonly TimeSpan BASE_DELAY_SWITCH = TimeSpan.FromMilliseconds(200);
 
@@ -108,7 +110,7 @@ namespace FlaQueueServer // 或 OTMS（按你的项目命名空间）
                         {
                             channel = task.Channel,
                             mode = task.Mode,
-                            resolution_m = res.resolution_m,
+                            res.resolution_m,
                             point_count = res.pointsCount,
                             segment_length_m = Math.Round(segmentLen, 3)
                         };
@@ -139,8 +141,8 @@ namespace FlaQueueServer // 或 OTMS（按你的项目命名空间）
                             mode = task.Mode,
                             peak_pos_m = peak.pos_m,
                             peak_db = peak.db,
-                            id = peak.id,
-                            sn = peak.sn
+                            peak.id,
+                            peak.sn
                         };
 
                         Log.Information("FLA auto-peak done for task {TaskId}: pos={Pos}m db={Db}dB", task.TaskId, peak.pos_m, peak.db);

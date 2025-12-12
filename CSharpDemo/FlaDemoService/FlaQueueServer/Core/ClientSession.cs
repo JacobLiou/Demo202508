@@ -3,7 +3,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
 
-namespace FlaQueueServer
+namespace FlaQueueServer.Core
 {
     public class ClientSession
     {

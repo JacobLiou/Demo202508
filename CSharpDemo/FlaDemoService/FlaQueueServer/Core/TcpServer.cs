@@ -1,10 +1,11 @@
-﻿using Serilog;
+﻿using FlaQueueServer.Model;
+using Serilog;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
 using System.Threading.Channels;
 
-namespace FlaQueueServer
+namespace FlaQueueServer.Core
 {
     public class TcpServer
     {

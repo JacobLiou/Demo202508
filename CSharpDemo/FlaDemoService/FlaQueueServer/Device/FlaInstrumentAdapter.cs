@@ -1,7 +1,7 @@
 ﻿using System.Net.Sockets;
 using System.Text;
 
-namespace FlaQueueServer
+namespace FlaQueueServer.Device
 {
     public class FlaInstrumentAdapter
     {
@@ -10,7 +10,8 @@ namespace FlaQueueServer
         private TcpClient? _client;
         private NetworkStream? _stream;
 
-        public FlaInstrumentAdapter(string host, int port) { _host = host; _port = port; }
+        public FlaInstrumentAdapter(string host, int port)
+        { _host = host; _port = port; }
 
         public async Task ConnectAsync(CancellationToken ct)
         {

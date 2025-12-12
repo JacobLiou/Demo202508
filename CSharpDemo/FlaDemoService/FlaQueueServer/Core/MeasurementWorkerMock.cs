@@ -1,7 +1,8 @@
-﻿using Serilog;
+﻿using FlaQueueServer.Model;
+using Serilog;
 using System.Threading.Channels;
 
-namespace FlaQueueServer
+namespace FlaQueueServer.Core
 {
     public class MeasurementWorkerMock
     {

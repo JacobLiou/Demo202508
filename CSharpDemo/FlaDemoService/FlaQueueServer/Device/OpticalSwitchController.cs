@@ -1,7 +1,7 @@
 ﻿using Serilog;
 using System.IO.Ports;
 
-namespace FlaQueueServer
+namespace FlaQueueServer.Device
 {
     /// <summary>
     /// 光开关控制器（RS232 协议）

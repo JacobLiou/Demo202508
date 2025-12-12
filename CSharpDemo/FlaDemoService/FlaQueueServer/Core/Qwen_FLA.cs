@@ -8,9 +8,9 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace WavemeterSharedServer
+namespace FlaQueueServer.Core
 {
-    class Program
+    class Qwen_FLA
     {
         // 配置参数
         private const int SERVER_PORT = 4300; // FLA设备的TCP端口
@@ -25,7 +25,7 @@ namespace WavemeterSharedServer
         private static bool _isProcessing = false;
         private static object _lockObject = new object();
 
-        static async Task Main(string[] args)
+        static async Task MainFunc(string[] args)
         {
             Console.WriteLine("=== Wavemeter Shared Server 启动中 ===");
             Console.WriteLine($"监听客户端连接: 0.0.0.0:{SERVER_PORT}");
