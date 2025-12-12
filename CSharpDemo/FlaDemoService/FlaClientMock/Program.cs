@@ -122,6 +122,37 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
         allResultsArrived.TrySetResult(true);
     }
 
+    // 持续轮询已 ack 的 taskId 以请求状态，直到收到 result（result 到来时会在 HandleServerMessage 中移除 pending）
+    _ = Task.Run(async () =>
+    {
+        try
+        {
+            while (!ct.IsCancellationRequested)
+            {
+                // 如果所有任务已提交且 pending 为空，退出查询
+                if (allSubmitted && pendingTaskIds.IsEmpty) break;
+
+                foreach (var taskId in pendingTaskIds.Keys)
+                {
+                    try
+                    {
+                        var q = BuildStatusQuery(taskId);
+                        //var q = BuildResultQuery(taskId);
+                        await writer.WriteLineAsync(q);
+                        // 轻微间隔，避免一次性刷爆服务器
+                        await Task.Delay(50, ct);
+                    }
+                    catch (OperationCanceledException) { break; }
+                    catch (Exception ex) { Console.WriteLine($"[C{clientId:00}] Query err: {ex.Message}"); }
+                }
+
+                // 每轮查询间隔
+                await Task.Delay(500, ct);
+            }
+        }
+        catch (OperationCanceledException) { }
+    }, ct);
+
     // 若服务端没有ack（协议异常），也不能永远挂死：这个场景下继续监听，
     // 一旦服务端主动返回 result（没有ack也可以），pending不会为空，我们不结束。
     // 因此这里用一个循环等待 pending 为空，或读循环结束（服务端断开）。
@@ -135,6 +166,18 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
     await allResultsArrived.Task;
 
     Console.WriteLine($"[C{clientId:00}] Completed. Closing.");
+}
+
+static string BuildStatusQuery(string taskId)
+{
+    var payloadObj = new { command = "status", taskId };
+    return JsonSerializer.Serialize(payloadObj);
+}
+
+static string BuildResultQuery(string taskId)
+{
+    var payloadObj = new { command = "result", taskId };
+    return JsonSerializer.Serialize(payloadObj);
 }
 
 // 修改：HandleServerMessage 支持 ack 收集 taskId 和 result 删除 taskId

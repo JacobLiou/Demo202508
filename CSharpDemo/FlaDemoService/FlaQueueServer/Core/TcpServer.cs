@@ -72,10 +72,12 @@ namespace FlaQueueServer.Core
                     if (line == null) break; // 客户端断开
                     if (string.IsNullOrWhiteSpace(line)) continue;
 
-                    SubmitRequest? req = null;
+                    Request? req = null;
+                    var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                     try
                     {
-                        req = JsonSerializer.Deserialize<SubmitRequest>(line, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                        req = JsonSerializer.Deserialize<Request>(line, options);
+
                     }
                     catch (Exception ex)
                     {
@@ -93,19 +95,31 @@ namespace FlaQueueServer.Core
                     switch (req.Command.ToLowerInvariant())
                     {
                         case "submit":
+                            var reqSubmit = JsonSerializer.Deserialize<SubmitRequest>(line, options);
+                            if (reqSubmit == null)
+                            {
+                                await session.SendAsync(new { command = "error", message = "invalid submit request" }, ct);
+                                break;
+                            }
+
                             var taskId = $"T{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString()[..8]}";
-                            var task = new MeasureTask(taskId, session, req.Channel, req.Mode, req.Params ?? new(), DateTime.UtcNow);
+                            var task = new MeasureTask(taskId, session, reqSubmit.Channel, reqSubmit.Mode!, reqSubmit.Params ?? new(), DateTime.UtcNow);
                             await _queue.Writer.WriteAsync(task, ct);
                             await session.SendAsync(new AckMessage("ack", taskId), ct);
                             break;
 
                         case "status":
-                            var tId = req.Params != null && req.Params.TryGetValue("taskId", out var tid) ? tid : "";
-                            await session.SendAsync(new StatusMessage("status", tId, "queued"), ct);
+                            var reqStatus = JsonSerializer.Deserialize<StatusRequest>(line, options);
+                            var tId = reqStatus?.TaskId != null ? reqStatus.TaskId : "";
+                            if (DailyResultStore.Instance.TryGet(tId, out var sResult))
+                                await session.SendAsync(new StatusMessage("status", tId, "complete"), ct);
+                            else
+                                await session.SendAsync(new StatusMessage("status", tId, "queued"), ct);
                             break;
 
                         case "result":
-                            var qTID = req.Params != null && req.Params.TryGetValue("taskId", out var qTId) ? qTId : "";
+                            var reqResult = JsonSerializer.Deserialize<ResultRequest>(line, options);
+                            var qTID = reqResult?.TaskId != null ? reqResult.TaskId : "";
                             if (DailyResultStore.Instance.TryGet(qTID, out var result))
                                 await session.SendAsync(result!, ct);
                             else
