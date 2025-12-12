@@ -49,7 +49,7 @@ namespace FlaQueueServer
                     _sessions.Add(session);
 
                 Console.WriteLine($"[Server] Client connected: {session.RemoteEndPoint}");
-                Log.Information($"[Server] Client connected: {session.RemoteEndPoint}"");
+                Log.Information($"[Server] Client connected: {session.RemoteEndPoint}");
                 _ = HandleClientAsync(session, ct);
             }
 
@@ -123,7 +123,7 @@ namespace FlaQueueServer
                 lock (_lock)
                     _sessions.Remove(session);
                 Console.WriteLine($"[Server] Client disconnected: {session.RemoteEndPoint}");
-                Log.Error($"[Server] Client disconnected: {session.RemoteEndPoint}");
+                Log.Information($"[Server] Client disconnected: {session.RemoteEndPoint}");
             }
         }
 
