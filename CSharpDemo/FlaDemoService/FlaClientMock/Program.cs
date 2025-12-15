@@ -25,7 +25,7 @@ var host = args.Length > 0 ? args[0] : "127.0.0.1";
 var port = args.Length > 1 && int.TryParse(args[1], out var p) ? p : 5600;
 var clients = args.Length > 2 && int.TryParse(args[2], out var c) ? Math.Min(Math.Max(c, 1), 16) : 16;
 var tasksPerClient = args.Length > 3 && int.TryParse(args[3], out var tpc) ? Math.Max(tpc, 1) : 2;
-var mode = args.Length > 4 ? args[4].ToLowerInvariant() : "scan";
+var mode = args.Length > 4 ? args[4].ToLowerInvariant() : "zero";
 var staggerMs = args.Length > 5 && int.TryParse(args[5], out var st) ? st : 50;
 
 Console.WriteLine($"[Mock] Host={host} Port={port} Clients={clients} TasksPerClient={tasksPerClient} Mode={mode} StaggerMs={staggerMs}");
@@ -259,6 +259,17 @@ static (string payload, string taskIdHint) BuildSubmitPayload(int clientId, int 
         };
         var json = JsonSerializer.Serialize(payloadObj);
         return (json, $"scan-{seq}");
+    }
+    else if (mode == "zero")
+    {
+        var payloadObj = new
+        {
+            command = "submit",
+            clientId,
+            mode = "zero",
+        };
+        var json = JsonSerializer.Serialize(payloadObj);
+        return (json, $"zero-{seq}");
     }
     else // auto_peak
     {

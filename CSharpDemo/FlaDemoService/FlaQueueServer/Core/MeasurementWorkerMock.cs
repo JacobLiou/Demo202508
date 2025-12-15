@@ -72,7 +72,7 @@ namespace FlaQueueServer.Core
                         string id = task.Params.GetValueOrDefault("id", "01");
                         string sn = task.Params.GetValueOrDefault("sn", $"SN{task.ClientId}A1");
                         data = new { channel = task.ClientId, mode = task.Mode, peak_pos_m = pos, peak_db = db, id, sn };
-                        Log.Information("[MOCK] Peak done {TaskId}: pos={Pos}m db={Db}dB id={Id} sn={Sn}", task.TaskId, pos, db, id, sn);
+                        Log.Information("[MOCK] Zero done {TaskId}: pos={Pos}m db={Db}dB id={Id} sn={Sn}", task.TaskId, pos, db, id, sn);
                     }
                     else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))
                     {
