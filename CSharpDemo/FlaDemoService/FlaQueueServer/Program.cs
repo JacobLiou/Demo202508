@@ -49,7 +49,7 @@ try
         Log.Information("Started in REAL mode");
         var adapter = new FlaInstrumentAdapter(cfg.FlaHost, cfg.FlaPort);
         var sw = new OpticalSwitchController(cfg.SwitchCom, cfg.SwitchBaud, cfg.SwitchIndex, cfg.SwitchInput);
-        var worker = new MeasurementWorker(queue, server, adapter, sw);
+        var worker = new MeasurementWorker(queue, server, adapter, sw, cfg.KeepFlaConnection);
         serverTask = server.StartAsync(cts.Token);
         workerTask = worker.StartAsync(cts.Token);
     }

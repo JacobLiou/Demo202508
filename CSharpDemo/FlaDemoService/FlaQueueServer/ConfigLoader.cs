@@ -21,7 +21,8 @@ namespace FlaQueueServer
 
         public int SwitchInput { get; set; } = 1;
 
-        public int LogRetainedDays { get; set; } = 14;
+        // 是否对 FLA 使用长连接（默认 false，短连接：每任务连接一次并在任务结束断开）
+        public bool KeepFlaConnection { get; set; } = true;
     }
 
     public static class ConfigLoader

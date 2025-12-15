@@ -13,6 +13,7 @@ namespace FlaQueueServer.Core
         private readonly OpticalSwitchController _switch;
         private readonly SemaphoreSlim _deviceLock = new(1, 1);
         private static readonly Random _jitter = new Random();
+        private readonly bool _keepFlaConnection;
 
         // 切开关最多重试 3 次
         private const int RETRY_SWITCH_MAX = 3;
@@ -36,17 +37,41 @@ namespace FlaQueueServer.Core
 
         private readonly ILogger Log = Serilog.Log.ForContext<MeasurementWorker>();
 
-        public MeasurementWorker(Channel<MeasureTask> queue, TcpServer server, FlaInstrumentAdapter adapter, OpticalSwitchController sw)
+        public MeasurementWorker(Channel<MeasureTask> queue, TcpServer server, FlaInstrumentAdapter adapter, OpticalSwitchController sw, bool keepFlaConnection = false)
         {
             _queue = queue;
             _server = server;
             _fla = adapter;
             _switch = sw;
+            _keepFlaConnection = keepFlaConnection;
         }
 
         public async Task StartAsync(CancellationToken ct)
         {
             Log.Information("Worker started");
+
+            // 如果配置为长连接，尝试在启动时建立一次连接（若失败会在任务开始时重试）
+            if (_keepFlaConnection)
+            {
+                try
+                {
+                    await RetryAsync(
+                        async () => await _fla.ConnectAsync(ct),
+                        "connect",
+                        RETRY_CONNECT_MAX,
+                        BASE_DELAY_CONNECT,
+                        ct,
+                        Log,
+                        failDetail: "initial FLA connect"
+                    );
+                    Log.Information("FLA long-connection established at worker start");
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(ex, "Initial long-connection to FLA failed; tasks will retry on demand");
+                }
+            }
+
             while (!ct.IsCancellationRequested)
             {
                 MeasureTask task;
@@ -56,8 +81,10 @@ namespace FlaQueueServer.Core
                 await _deviceLock.WaitAsync(ct);
                 try
                 {
-                    Log.Information("Task start {TaskId} ch={ClientId} mode={Mode}", task.TaskId, task.ClientId, task.Mode);
-                    // notify switching (use unified ResultMessage with status)
+                    Log.Information("Task start {TaskId} ClientId={ClientId} mode={Mode}", task.TaskId, task.ClientId, task.Mode);
+
+                    // 标记为运行中并通知客户端
+                    RunningTaskTracker.Instance.MarkRunning(task.TaskId);
                     await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "running"), ct);
 
                     // 1) 切光开关 —— 带重试
@@ -72,24 +99,35 @@ namespace FlaQueueServer.Core
                     );
                     Log.Information("Switch set to {Channel} for task {TaskId}", task.ClientId, task.TaskId);
 
-                    // 标记为运行中并通知客户端
-                    RunningTaskTracker.Instance.MarkRunning(task.TaskId);
-                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "running"), ct);
-
-                    // 2) 连接 FLA —— 带重试
-                    await RetryAsync(
-                        async () => await _fla.ConnectAsync(ct),
-                        "connect",
-                        RETRY_CONNECT_MAX,
-                        BASE_DELAY_CONNECT,
-                        ct,
-                        Log,
-                        failDetail: "FLA tcp handshake"
-                    );
-                    Log.Information("FLA connected for task {TaskId}", task.TaskId);
+                    // 2) 连接 FLA —— 带重试（仅短链接或长链接首次连接失败时）
+                    if (!_keepFlaConnection)
+                    {
+                        await RetryAsync(
+                            async () => await _fla.ConnectAsync(ct),
+                            "connect",
+                            RETRY_CONNECT_MAX,
+                            BASE_DELAY_CONNECT,
+                            ct,
+                            Log,
+                            failDetail: "FLA tcp handshake"
+                        );
+                        Log.Information("FLA connected for task {TaskId}", task.TaskId);
+                    }
+                    else
+                    {
+                        // 如果长连接配置且尚未连接，尝试连接一次
+                        try
+                        {
+                            await _fla.ConnectAsync(ct);
+                        }
+                        catch
+                        {
+                            // ignore: RetryAsync below when performing ops will handle transient failures
+                        }
+                        Log.Debug("Using long connection for task {TaskId}", task.TaskId);
+                    }
 
                     object data;
-
                     if (task.Mode.Equals("scan", StringComparison.OrdinalIgnoreCase))
                     {
                         // 3) 设置 SR/G/WR/X —— 每条指令带重试
@@ -123,32 +161,17 @@ namespace FlaQueueServer.Core
                     else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
                     {
                         // 3) 执行归零操作
-                        var peak = await RetryAsync(
-                            async () => await _fla.ZeroAsync(
-                                task.Params["start_m"], task.Params["end_m"],
-                                task.Params.GetValueOrDefault("count_mode", "2"),
-                                task.Params.GetValueOrDefault("algo", "2"),
-                                task.Params["width_m"], task.Params["threshold_db"],
-                                task.Params["id"], task.Params["sn"], ct),
-                            "auto-peak",
+                        await RetryAsync(
+                            async () => await _fla.ZeroAsync(ct),
+                            "zero",
                             RETRY_MEASURE_MAX,
                             BASE_DELAY_MEASURE,
                             ct,
-                            Log,
-                            failDetail: $"id={task.Params.GetValueOrDefault("id", "")}, sn={task.Params.GetValueOrDefault("sn", "")}"
+                            Log
                         );
 
-                        data = new
-                        {
-                            channel = task.ClientId,
-                            mode = task.Mode,
-                            peak_pos_m = peak.pos_m,
-                            peak_db = peak.db,
-                            peak.id,
-                            peak.sn
-                        };
-
-                        Log.Information("FLA auto-peak done for task {TaskId}: pos={Pos}m db={Db}dB", task.TaskId, peak.pos_m, peak.db);
+                        data = new object();
+                        Log.Information("FLA zerodone for task {TaskId}", task.TaskId);
                     }
                     else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))
                     {
@@ -205,11 +228,24 @@ namespace FlaQueueServer.Core
                 }
                 finally
                 {
-                    // 无论成功失败都断开 FLA（避免连接泄露）
-                    try { await _fla.DisconnectAsync(); } catch { }
-                    Log.Debug("FLA disconnected for task {TaskId}", task.TaskId);
+                    try
+                    {
+                        if (!_keepFlaConnection)
+                        {
+                            await _fla.DisconnectAsync();
+                            Log.Debug("FLA disconnected for task {TaskId}", task.TaskId);
+                        }
+                    }
+                    catch { }
+
                     _deviceLock.Release();
                 }
+            }
+
+            // 如果使用长连接模式，Stop 时断开
+            if (_keepFlaConnection)
+            {
+                try { await _fla.DisconnectAsync(); } catch { }
             }
 
             Log.Information("Worker stopped");

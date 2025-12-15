@@ -3,6 +3,9 @@ using System.Text;
 
 namespace FlaQueueServer.Devices
 {
+    /// <summary>
+    /// Fla设备驱动控制器 (TCP 协议)
+    /// </summary>
     public class FlaInstrumentAdapter
     {
         private readonly string _host;
