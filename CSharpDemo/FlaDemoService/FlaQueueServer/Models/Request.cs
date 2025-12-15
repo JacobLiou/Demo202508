@@ -9,18 +9,11 @@
     {
         public override string? Command { get; set; } = "submit";
 
-        public int Channel { get; set; }
+        public int ClientId { get; set; }
 
         public string? Mode { get; set; }
 
         public Dictionary<string, string>? Params { get; set; }
-    }
-
-    public class StatusRequest : Request
-    {
-        public override string? Command { get; set; } = "status";
-
-        public string? TaskId { get; set; }
     }
 
     public class ResultRequest : Request

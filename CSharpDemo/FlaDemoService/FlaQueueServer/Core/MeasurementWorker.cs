@@ -56,24 +56,25 @@ namespace FlaQueueServer.Core
                 await _deviceLock.WaitAsync(ct);
                 try
                 {
-                    Log.Information("Task start {TaskId} ch={Channel} mode={Mode}", task.TaskId, task.Channel, task.Mode);
-                    await _server.SendResultAsync(task, new StatusMessage("status", task.TaskId, "switching"), ct);
+                    Log.Information("Task start {TaskId} ch={Channel} mode={Mode}", task.TaskId, task.ClientId, task.Mode);
+                    // notify switching (use unified ResultMessage with status)
+                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "switching"), ct);
 
                     // 1) 切光开关 —— 带重试
                     await RetryAsync(
-                        async () => await _switch.SwitchToOutputAsync(task.Channel, ct),
+                        async () => await _switch.SwitchToOutputAsync(task.ClientId, ct),
                         "switch",
                         RETRY_SWITCH_MAX,
                         BASE_DELAY_SWITCH,
                         ct,
                         Log,
-                        failDetail: $"channel={task.Channel}"
+                        failDetail: $"channel={task.ClientId}"
                     );
-                    Log.Information("Switch set to {Channel} for task {TaskId}", task.Channel, task.TaskId);
+                    Log.Information("Switch set to {Channel} for task {TaskId}", task.ClientId, task.TaskId);
 
                     // 标记为运行中并通知客户端
                     RunningTaskTracker.Instance.MarkRunning(task.TaskId);
-                    await _server.SendResultAsync(task, new StatusMessage("status", task.TaskId, "running"), ct);
+                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "running"), ct);
 
                     // 2) 连接 FLA —— 带重试
                     await RetryAsync(
@@ -110,7 +111,7 @@ namespace FlaQueueServer.Core
                         var segmentLen = res.resolution_m * res.pointsCount;
                         data = new
                         {
-                            channel = task.Channel,
+                            ClientId = task.ClientId,
                             mode = task.Mode,
                             res.resolution_m,
                             point_count = res.pointsCount,
@@ -118,6 +119,36 @@ namespace FlaQueueServer.Core
                         };
 
                         Log.Information("FLA scan done for task {TaskId}: res={Res}m, count={Count}", task.TaskId, res.resolution_m, res.pointsCount);
+                    }
+                    else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // 3) 执行归零操作
+                        var peak = await RetryAsync(
+                            async () => await _fla.AutoPeakAsync(
+                                task.Params["start_m"], task.Params["end_m"],
+                                task.Params.GetValueOrDefault("count_mode", "2"),
+                                task.Params.GetValueOrDefault("algo", "2"),
+                                task.Params["width_m"], task.Params["threshold_db"],
+                                task.Params["id"], task.Params["sn"], ct),
+                            "auto-peak",
+                            RETRY_MEASURE_MAX,
+                            BASE_DELAY_MEASURE,
+                            ct,
+                            Log,
+                            failDetail: $"id={task.Params.GetValueOrDefault("id", "")}, sn={task.Params.GetValueOrDefault("sn", "")}"
+                        );
+
+                        data = new
+                        {
+                            channel = task.ClientId,
+                            mode = task.Mode,
+                            peak_pos_m = peak.pos_m,
+                            peak_db = peak.db,
+                            peak.id,
+                            peak.sn
+                        };
+
+                        Log.Information("FLA auto-peak done for task {TaskId}: pos={Pos}m db={Db}dB", task.TaskId, peak.pos_m, peak.db);
                     }
                     else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))
                     {
@@ -139,7 +170,7 @@ namespace FlaQueueServer.Core
 
                         data = new
                         {
-                            channel = task.Channel,
+                            channel = task.ClientId,
                             mode = task.Mode,
                             peak_pos_m = peak.pos_m,
                             peak_db = peak.db,
@@ -154,8 +185,8 @@ namespace FlaQueueServer.Core
                         throw new Exception($"unknown mode {task.Mode}");
                     }
 
-                    // 成功返回
-                    var result = new ResultMessage("result", task.TaskId, true, data, null);
+                    // 成功返回（status = complete）
+                    var result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                     await _server.SendResultAsync(task, result, ct);
                     Log.Information("Task success {TaskId}", task.TaskId);
                     DailyResultStore.Instance.AddOrUpdate(task.TaskId, result);
@@ -164,8 +195,8 @@ namespace FlaQueueServer.Core
                 }
                 catch (Exception ex)
                 {
-                    // 最终失败返回
-                    var failResult = new ResultMessage("result", task.TaskId, false, null, ex.Message);
+                    // 最终失败返回（status = complete, success=false）
+                    var failResult = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: ex.Message);
                     await _server.SendResultAsync(task, failResult, ct);
                     DailyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
                     // 标记完成（即使失败也不在 running）
@@ -180,6 +211,7 @@ namespace FlaQueueServer.Core
                     _deviceLock.Release();
                 }
             }
+
             Log.Information("Worker stopped");
         }
 

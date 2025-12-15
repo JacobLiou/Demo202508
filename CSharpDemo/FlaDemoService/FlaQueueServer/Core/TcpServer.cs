@@ -103,27 +103,29 @@ namespace FlaQueueServer.Core
                             }
 
                             var taskId = $"T{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString()[..8]}";
-                            var task = new MeasureTask(taskId, session, reqSubmit.Channel, reqSubmit.Mode!, reqSubmit.Params ?? new(), DateTime.UtcNow);
+                            var task = new MeasureTask(taskId, session, reqSubmit.ClientId, reqSubmit.Mode!, reqSubmit.Params ?? new(), DateTime.UtcNow);
                             await _queue.Writer.WriteAsync(task, ct);
-                            await session.SendAsync(new AckMessage("ack", taskId), ct);
+                            // send ack with unified field names
+                            await session.SendAsync(new AckMessage("ack", taskId, reqSubmit.ClientId, reqSubmit.Mode), ct);
                             break;
 
-                        case "status":
-                            var reqStatus = JsonSerializer.Deserialize<StatusRequest>(line, options);
+                        case "result":
+                            var reqStatus = JsonSerializer.Deserialize<ResultRequest>(line, options);
                             var tId = reqStatus?.TaskId != null ? reqStatus.TaskId : "";
 
                             // 优先判断是否正在运行（由 RunningTaskTracker 标记）
                             if (!string.IsNullOrEmpty(tId) && RunningTaskTracker.Instance.IsRunning(tId))
                             {
-                                await session.SendAsync(new StatusMessage("status", tId, "running"), ct);
+                                await session.SendAsync(new ResultMessage("result", tId, status: "running"), ct);
                             }
                             else if (DailyResultStore.Instance.TryGet(tId, out var sResult))
                             {
+                                // stored final result (status=complete + success/data/error)
                                 await session.SendAsync(sResult!, ct);
                             }
                             else
                             {
-                                await session.SendAsync(new StatusMessage("status", tId, "queued"), ct);
+                                await session.SendAsync(new ResultMessage("result", tId, status: "queued"), ct);
                             }
                             break;
 

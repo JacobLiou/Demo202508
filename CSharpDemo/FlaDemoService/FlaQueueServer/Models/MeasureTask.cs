@@ -5,7 +5,7 @@ namespace FlaQueueServer.Models
     public record MeasureTask(
         string TaskId,
         ClientSession Session,
-        int Channel,
+        int ClientId,
         string Mode,
         Dictionary<string, string> Params,
         DateTime CreatedAt

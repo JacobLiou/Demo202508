@@ -39,11 +39,12 @@ namespace FlaQueueServer.Core
                 await _deviceLock.WaitAsync(ct);
                 try
                 {
-                    Log.Information("[MOCK] Task start {TaskId} ch={Channel} mode={Mode}", task.TaskId, task.Channel, task.Mode);
+                    Log.Information("[MOCK] Task start {TaskId} ch={Channel} mode={Mode}", task.TaskId, task.ClientId, task.Mode);
+                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "switching"), ct);
 
                     RunningTaskTracker.Instance.MarkRunning(task.TaskId);
                     await Task.Delay(_switchDelayMs, ct);
-                    Log.Information("[MOCK] Switch set to {Channel} for task {TaskId}", task.Channel, task.TaskId);
+                    Log.Information("[MOCK] Switch set to {Channel} for task {TaskId}", task.ClientId, task.TaskId);
                     //await _server.SendResultAsync(task, new StatusMessage("status", task.TaskId, "running"), ct);
 
                     object data;
@@ -55,8 +56,21 @@ namespace FlaQueueServer.Core
                         double resolution = resOptions[_rand.Next(resOptions.Length)];
                         int pointCount = _rand.Next(180, 420);
                         double segmentLen = Math.Round(resolution * pointCount, 3);
-                        data = new { channel = task.Channel, mode = task.Mode, resolution_m = resolution, point_count = pointCount, segment_length_m = segmentLen };
+                        data = new { channel = task.ClientId, mode = task.Mode, resolution_m = resolution, point_count = pointCount, segment_length_m = segmentLen };
                         Log.Information("[MOCK] Scan done {TaskId}: res={Res}m count={Count} len={Len}m", task.TaskId, resolution, pointCount, segmentLen);
+                    }
+                    else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var delay = _rand.Next(_peakDelayMs.minMs, _peakDelayMs.maxMs + 1);
+                        await Task.Delay(delay, ct);
+                        double start = ParseDouble(task.Params.GetValueOrDefault("start_m", "0.5"), 0.5);
+                        double end = ParseDouble(task.Params.GetValueOrDefault("end_m", "25"), 25);
+                        double pos = Math.Round(start + _rand.NextDouble() * Math.Max(0.01, end - start), 3);
+                        double db = Math.Round(-30 - _rand.NextDouble() * 25, 3);
+                        string id = task.Params.GetValueOrDefault("id", "01");
+                        string sn = task.Params.GetValueOrDefault("sn", $"SN{task.ClientId}A1");
+                        data = new { channel = task.ClientId, mode = task.Mode, peak_pos_m = pos, peak_db = db, id, sn };
+                        Log.Information("[MOCK] Peak done {TaskId}: pos={Pos}m db={Db}dB id={Id} sn={Sn}", task.TaskId, pos, db, id, sn);
                     }
                     else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))
                     {
@@ -67,8 +81,8 @@ namespace FlaQueueServer.Core
                         double pos = Math.Round(start + _rand.NextDouble() * Math.Max(0.01, end - start), 3);
                         double db = Math.Round(-30 - _rand.NextDouble() * 25, 3);
                         string id = task.Params.GetValueOrDefault("id", "01");
-                        string sn = task.Params.GetValueOrDefault("sn", $"SN{task.Channel}A1");
-                        data = new { channel = task.Channel, mode = task.Mode, peak_pos_m = pos, peak_db = db, id, sn };
+                        string sn = task.Params.GetValueOrDefault("sn", $"SN{task.ClientId}A1");
+                        data = new { channel = task.ClientId, mode = task.Mode, peak_pos_m = pos, peak_db = db, id, sn };
                         Log.Information("[MOCK] Peak done {TaskId}: pos={Pos}m db={Db}dB id={Id} sn={Sn}", task.TaskId, pos, db, id, sn);
                     }
                     else
@@ -76,7 +90,7 @@ namespace FlaQueueServer.Core
                         throw new Exception($"unknown mode {task.Mode}");
                     }
 
-                    var result = new ResultMessage("result", task.TaskId, true, data, null);
+                    var result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                     await _server.SendResultAsync(task, result, ct);
                     Log.Information("[MOCK] Task success {TaskId}", task.TaskId);
                     DailyResultStore.Instance.AddOrUpdate(task.TaskId, result);
@@ -84,7 +98,7 @@ namespace FlaQueueServer.Core
                 }
                 catch (Exception ex)
                 {
-                    var failResult = new ResultMessage("result", task.TaskId, false, null, ex.Message);
+                    var failResult = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: ex.Message);
                     await _server.SendResultAsync(task, failResult, ct);
                     Log.Error(ex, "[MOCK] Task failed {TaskId}", task.TaskId);
                     DailyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);

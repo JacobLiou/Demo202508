@@ -200,9 +200,9 @@ static void HandleServerMessage(int clientId, string line, ConcurrentDictionary<
                 Console.WriteLine($"[C{clientId:00}] <- ack taskId={taskIdAck}");
                 break;
 
-            case "status":
-                Console.WriteLine($"[C{clientId:00}] <- status {root.GetProperty("status").GetString()} taskId={root.GetProperty("taskId").GetString()}");
-                break;
+            //case "status":
+            //    Console.WriteLine($"[C{clientId:00}] <- status {root.GetProperty("status").GetString()} taskId={root.GetProperty("taskId").GetString()}");
+            //    break;
 
             case "result":
                 var success = root.GetProperty("success").GetBoolean();
