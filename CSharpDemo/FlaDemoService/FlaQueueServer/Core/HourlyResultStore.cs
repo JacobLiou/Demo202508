@@ -1,6 +1,6 @@
-﻿using Serilog;
+﻿using Microsoft.Extensions.Caching.Memory;
+using Serilog;
 using System.Collections.Concurrent;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace FlaQueueServer.Core
 {
@@ -22,6 +22,8 @@ namespace FlaQueueServer.Core
         // approximate size limit (number of entries). null = unlimited
         private long? _sizeLimit = 10000;
 
+        private Timer? _logTimer;
+
         private readonly ILogger Log = Serilog.Log.ForContext<HourlyResultStore>();
 
         private HourlyResultStore()
@@ -31,6 +33,9 @@ namespace FlaQueueServer.Core
                 options.SizeLimit = _sizeLimit.Value;
             _cache = new MemoryCache(options);
             Log.Information("HourlyResultStore initialized with retention={Retention} and sizeLimit={SizeLimit}", _retention, _sizeLimit);
+
+            // start a periodic debug logger every 5 minutes
+            _logTimer = new Timer(_ => LogCacheContents(), state: null, dueTime: TimeSpan.FromMinutes(5), period: TimeSpan.FromMinutes(5));
         }
 
         /// <summary>
@@ -83,7 +88,7 @@ namespace FlaQueueServer.Core
             Log.Debug("Store Result: {TaskId} (total={Count})", taskId, _keys.Count);
         }
 
-        private void PostEviction(object key, object value, EvictionReason reason, object state)
+        private void PostEviction(object key, object? value, EvictionReason reason, object? state)
         {
             try
             {
@@ -144,9 +149,37 @@ namespace FlaQueueServer.Core
             catch { }
         }
 
+        // Periodic debug: log current cache keys and counts
+        private void LogCacheContents()
+        {
+            try
+            {
+                var keys = _keys.Keys.ToArray();
+                Log.Information("HourlyResultStore snapshot at {Time}: totalKeys={Count}", DateTime.UtcNow, keys.Length);
+                foreach (var k in keys)
+                {
+                    // attempt to get value to ensure it's present
+                    if (_cache.TryGetValue(k, out ResultMessage? r))
+                    {
+                        Log.Debug("  key={Key} present", k);
+                    }
+                    else
+                    {
+                        Log.Debug("  key={Key} missing/expired", k);
+                        _keys.TryRemove(k, out _);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(ex, "HourlyResultStore LogCacheContents failed");
+            }
+        }
+
         public void Dispose()
         {
             try { _cache.Dispose(); } catch { }
+            try { _logTimer?.Dispose(); } catch { }
             _keys.Clear();
         }
     }

@@ -130,15 +130,11 @@ namespace FlaQueueServer.Core
                     object data;
                     if (task.Mode.Equals("scan", StringComparison.OrdinalIgnoreCase))
                     {
-                        // 3) 设置 SR/G/WR/X —— 每条指令带重试
-                        await RetryAsync(async () => await _fla.SetResolutionAsync(task.Params.GetValueOrDefault("sr_mode", "0"), ct), "set-SR", RETRY_SET_MAX, BASE_DELAY_SET, ct, Log);
-                        await RetryAsync(async () => await _fla.SetGainAsync(task.Params.GetValueOrDefault("gain", "1"), ct), "set-G", RETRY_SET_MAX, BASE_DELAY_SET, ct, Log);
-                        await RetryAsync(async () => await _fla.SetWindowAsync(task.Params.GetValueOrDefault("wr_len", "10.00"), ct), "set-WR", RETRY_SET_MAX, BASE_DELAY_SET, ct, Log);
-                        await RetryAsync(async () => await _fla.SetCenterAsync(task.Params.GetValueOrDefault("x_center", "000.0"), ct), "set-X", RETRY_SET_MAX, BASE_DELAY_SET, ct, Log);
+                        double zero_length = ParseDouble(task.Params.GetValueOrDefault("zero_length", "5"), 5);
 
-                        // 4) 执行 SCAN —— 带重试（如果设备忙或网络瞬断）
+                        // SCAN —— 带重试（如果设备忙或网络瞬断）
                         var res = await RetryAsync(
-                            async () => await _fla.ScanAsync(ct),
+                            async () => await _fla.ScanLengthAsync(zero_length, ct),
                             "scan",
                             RETRY_MEASURE_MAX,
                             BASE_DELAY_MEASURE,
@@ -146,23 +142,21 @@ namespace FlaQueueServer.Core
                             Log
                         );
 
-                        var segmentLen = res.resolution_m * res.pointsCount;
+
                         data = new
                         {
                             ClientId = task.ClientId,
                             mode = task.Mode,
-                            res.resolution_m,
-                            point_count = res.pointsCount,
-                            segment_length_m = Math.Round(segmentLen, 3)
+                            scan_length = res
                         };
 
-                        Log.Information("FLA scan done for task {TaskId}: res={Res}m, count={Count}", task.TaskId, res.resolution_m, res.pointsCount);
+                        Log.Information("FLA scan done for task {TaskId}: scan_length={Res}", task.TaskId, res);
                     }
                     else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
                     {
-                        // 3) 执行归零操作
-                        await RetryAsync(
-                            async () => await _fla.ZeroAsync(ct),
+                        // 执行归零操作
+                        var zero = await RetryAsync(
+                            async () => await _fla.ZeroLengthAsync(ct),
                             "zero",
                             RETRY_MEASURE_MAX,
                             BASE_DELAY_MEASURE,
@@ -170,38 +164,13 @@ namespace FlaQueueServer.Core
                             Log
                         );
 
-                        data = new object();
-                        Log.Information("FLA zerodone for task {TaskId}", task.TaskId);
-                    }
-                    else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // 3) 执行寻峰 —— 带重试
-                        var peak = await RetryAsync(
-                            async () => await _fla.AutoPeakAsync(
-                                task.Params["start_m"], task.Params["end_m"],
-                                task.Params.GetValueOrDefault("count_mode", "2"),
-                                task.Params.GetValueOrDefault("algo", "2"),
-                                task.Params["width_m"], task.Params["threshold_db"],
-                                task.Params["id"], task.Params["sn"], ct),
-                            "auto-peak",
-                            RETRY_MEASURE_MAX,
-                            BASE_DELAY_MEASURE,
-                            ct,
-                            Log,
-                            failDetail: $"id={task.Params.GetValueOrDefault("id", "")}, sn={task.Params.GetValueOrDefault("sn", "")}"
-                        );
-
                         data = new
                         {
-                            channel = task.ClientId,
+                            ClientId = task.ClientId,
                             mode = task.Mode,
-                            peak_pos_m = peak.pos_m,
-                            peak_db = peak.db,
-                            peak.id,
-                            peak.sn
+                            zero_length = zero,
                         };
-
-                        Log.Information("FLA auto-peak done for task {TaskId}: pos={Pos}m db={Db}dB", task.TaskId, peak.pos_m, peak.db);
+                        Log.Information("FLA zero done for task {TaskId}", task.TaskId);
                     }
                     else
                     {
@@ -362,5 +331,8 @@ namespace FlaQueueServer.Core
                 }
             }
         }
+
+        private static double ParseDouble(string s, double def)
+            => double.TryParse(s, out var v) ? v : def;
     }
 }

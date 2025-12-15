@@ -8,6 +8,19 @@ namespace FlaQueueServer.Devices
     /// </summary>
     public class FlaInstrumentAdapter
     {
+        // ------------------ 固化的默认参数（最佳参数） ------------------
+        private const string DEFAULT_START = "0.0";
+
+        private const string DEFAULT_END = "30.0";
+        private const string DEFAULT_ALGO = "2";
+        private const string DEFAULT_WIDTH = "0.5";   // m
+        private const string DEFAULT_THRESHOLD = "90";    // => -90dB
+        private const string DEFAULT_ID = "12";
+        private const string DEFAULT_SN = "SN1A234";
+
+        // 扫描时对客户端 lengthHint 的安全裕度（单位：米）
+        private const double SCAN_END_MARGIN_M = 5.0;
+
         private readonly string _host;
 
         private readonly int _port; // 4300
@@ -47,6 +60,126 @@ namespace FlaQueueServer.Devices
             catch { }
         }
 
+        /// <summary>
+        /// 归零
+        /// </summary>
+        /// <param name="ct"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        public async Task<double> ZeroLengthAsync(CancellationToken ct)
+        {
+            // 测量范围重置（归零）：X_00000 + WR_00000，均需返回 SET OK
+            await SetCenterAsync("00000", ct);  // X_00000
+            await SetWindowAsync("00000", ct);  // WR_00000
+
+            // 自动寻峰（多个峰）：使用默认参数（Start/End/Algo/Width/Threshold/Id/Sn）
+            var peaks = await AutoPeakMultiAsync(
+                start: DEFAULT_START,
+                end: DEFAULT_END,
+                count: "2",
+                algo: DEFAULT_ALGO,
+                width: DEFAULT_WIDTH,
+                thr: DEFAULT_THRESHOLD,
+                id: DEFAULT_ID,
+                sn: DEFAULT_SN,
+                ct: ct
+            );
+
+            // 产线约定取第 3 峰作为归零线长
+            if (peaks.Count >= 3)
+            {
+                var third = peaks[2];
+                return third.Position_m;
+            }
+
+            // 兜底：不足 3 个峰，取距离最大
+            if (peaks.Count > 0)
+            {
+                var maxDist = peaks.OrderByDescending(x => x.Position_m).First();
+                return maxDist.Position_m;
+            }
+
+            return -1d;
+        }
+
+        /// <summary>
+        /// 扫描
+        /// </summary>
+        /// <param name="lengthHint_m"></param>
+        /// <param name="zeroLength_m"></param>
+        /// <param name="ct"></param>
+        /// <param name="minRl_dB"></param>
+        /// <param name="lengthRange_m"></param>
+        /// <returns></returns>
+        /// <exception cref="InvalidOperationException"></exception>
+        public async Task<double> ScanLengthAsync(
+            double zeroLength_m,            // 上一步归零得到的基准线长
+            CancellationToken ct
+        )
+        {
+            var peaks = await AutoPeakMultiAsync(
+                start: DEFAULT_START,
+                end: DEFAULT_END,
+                count: "2",
+                algo: DEFAULT_ALGO,
+                width: DEFAULT_WIDTH,
+                thr: DEFAULT_THRESHOLD,
+                id: DEFAULT_ID,
+                sn: DEFAULT_SN,
+                ct: ct
+            );
+
+            if (peaks.Count == 0)
+                return -1d;
+
+            // 代表产品端点的峰：采用距离最大（如需按 dB 选择，可改成幅值最大）
+            var endpoint = peaks.OrderByDescending(x => x.Position_m).First();
+            var productLen = endpoint.Position_m - zeroLength_m;
+            return productLen;
+        }
+
+        // 峰值结果
+        private record PeakPoint(double Position_m, double Db, double Id, string Sn);
+
+        // ------------------ 自动寻峰（多峰） ------------------
+        private async Task<List<PeakPoint>> AutoPeakMultiAsync(
+            string start, string end, string count, string algo, string width, string thr, string id, string sn,
+            CancellationToken ct)
+        {
+            var sum = CalcSum(new[] { start, end, count, algo, width, thr, id, sn }); // 绝对值求和（含 ID/SN 数字部分），容差 0.1
+            var cmd = $"SCAN_{start}_{end}_{count}_{algo}_{width}_{thr}_{id}_{sn}_{sum:F3}_NACS";
+            await SendLineAsync(cmd, ct);
+
+            var points = new List<PeakPoint>();
+            for (int i = 0; i < 256; i++) // 读取所有 OP_ 行
+            {
+                var line = await ReadLineAsync(ct);
+                if (line is null) break;
+
+                if (line.Contains("INPUT_ERROR", StringComparison.OrdinalIgnoreCase))
+                    throw new Exception("INPUT_ERROR from device");
+
+                if (!line.StartsWith("OP_", StringComparison.OrdinalIgnoreCase))
+                    break;
+
+                var segs = line.Split('_', StringSplitOptions.RemoveEmptyEntries);
+                if (segs.Length < 6) throw new Exception($"Unexpected response: {line}");
+
+                double pos = double.Parse(segs[1]);     // m
+                double db = double.Parse(segs[2]);     // dB（负值）
+                double idResp = double.Parse(segs[3]);
+                string snResp = segs[4];
+                double sumDev = double.Parse(segs[5]);     // 校验和
+
+                var calc = CalcSum(new[] { pos.ToString(), db.ToString(), idResp.ToString(), snResp });
+                if (Math.Abs(calc - sumDev) > 0.1)
+                    throw new Exception($"Checksum mismatch: calc={calc:F3}, dev={sumDev:F3}");
+
+                points.Add(new PeakPoint(pos, db, idResp, snResp));
+            }
+            return points;
+        }
+
         public async Task SetResolutionAsync(string srMode, CancellationToken ct)
             => await SendAndExpectOkAsync($"SR_{srMode}", ct);
 
@@ -57,60 +190,11 @@ namespace FlaQueueServer.Devices
             await SendAndExpectOkAsync($"G_{gmap}", ct);
         }
 
-        public async Task SetWindowAsync(string wr, CancellationToken ct)
+        private async Task SetWindowAsync(string wr, CancellationToken ct)
             => await SendAndExpectOkAsync($"WR_{Fmt5(wr)}", ct);
 
-        public async Task SetCenterAsync(string x, CancellationToken ct)
+        private async Task SetCenterAsync(string x, CancellationToken ct)
             => await SendAndExpectOkAsync($"X_{Fmt5(x)}", ct);
-
-        public async Task<(double resolution_m, int pointsCount)> ScanAsync(CancellationToken ct)
-        {
-            await SendLineAsync("SCAN", ct);
-            // 首行分辨率
-            var resLine = await ReadLineAsync(ct);
-            double resolution = ParseNumber(resLine);
-            // 读到 '!' 为止的负载；每点12字节（ASCII），仅纵坐标
-            var payload = await ReadUntilBangAsync(ct);
-            var bytes = Encoding.ASCII.GetBytes(payload);
-            int chunk = 12; int count = 0;
-            for (int i = 0; i + chunk <= bytes.Length; i += chunk)
-            {
-                // 可选：解析 double 值，这里只计数
-                count++;
-            }
-
-            return (resolution, count);
-        }
-
-        // 归零（测量范围重置）：将中心与窗口都设置为 00000
-        public async Task ZeroAsync(CancellationToken ct)
-        {
-            await SetCenterAsync("00000", ct);
-            await SetWindowAsync("00000", ct);
-        }
-
-        public async Task<(double pos_m, double db, double id, string sn, double sum)> AutoPeakAsync(
-            string start, string end, string count, string algo, string width, string thr, string id, string sn, CancellationToken ct)
-        {
-            var sum = CalcSum(new[] { start, end, count, algo, width, thr, id, sn });
-            var cmd = $"SCAN_{start}_{end}_{count}_{algo}_{width}_{thr}_{id}_{sn}_{sum:F3}_NACS";
-            await SendLineAsync(cmd, ct);
-            var line = await ReadLineAsync(ct);
-            if (line.Contains("INPUT_ERROR", StringComparison.OrdinalIgnoreCase))
-                throw new Exception("INPUT_ERROR from device");
-            var segs = line.Split('_', StringSplitOptions.RemoveEmptyEntries);
-            if (segs.Length < 6 || !segs[0].Equals("OP", StringComparison.OrdinalIgnoreCase))
-                throw new Exception($"Unexpected response: {line}");
-            double pos = double.Parse(segs[1]);
-            double db = double.Parse(segs[2]);
-            double idv = double.Parse(segs[3]);
-            string snv = segs[4];
-            double sumDev = double.Parse(segs[5]);
-            var calc = CalcSum(new[] { pos.ToString(), db.ToString(), idv.ToString(), snv });
-            if (Math.Abs(calc - sumDev) > 0.1)
-                throw new Exception($"Checksum mismatch: calc={calc:F3}, dev={sumDev:F3}");
-            return (pos, db, idv, snv, sumDev);
-        }
 
         private async Task SendAndExpectOkAsync(string cmd, CancellationToken ct)
         {
