@@ -101,6 +101,7 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
     // 提交任务
     for (int k = 1; k <= tasksPerClient; k++)
     {
+        mode = k % 2 == 0 ? "scan" : "zero";
         var (payload, taskIdHint) = BuildSubmitPayload(clientId, k, mode, rand);
         await writer.WriteLineAsync(payload);
         Console.WriteLine($"[C{clientId:00}] -> submit #{k}: {taskIdHint}");
@@ -124,35 +125,35 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
         allResultsArrived.TrySetResult(true);
     }
 
-    // 持续轮询已 ack 的 taskId 以请求状态，直到收到 result（result 到来时会在 HandleServerMessage 中移除 pending）
-    _ = Task.Run(async () =>
-    {
-        try
-        {
-            while (!ct.IsCancellationRequested)
-            {
-                // 如果所有任务已提交且 pending 为空，退出查询
-                if (allSubmitted && pendingTaskIds.IsEmpty) break;
+    //// 持续轮询已 ack 的 taskId 以请求状态，直到收到 result（result 到来时会在 HandleServerMessage 中移除 pending）
+    //_ = Task.Run(async () =>
+    //{
+    //    try
+    //    {
+    //        while (!ct.IsCancellationRequested)
+    //        {
+    //            // 如果所有任务已提交且 pending 为空，退出查询
+    //            if (allSubmitted && pendingTaskIds.IsEmpty) break;
 
-                foreach (var taskId in pendingTaskIds.Keys)
-                {
-                    try
-                    {
-                        var q = BuildResultQuery(taskId);
-                        await writer.WriteLineAsync(q);
-                        // 轻微间隔，避免一次性刷爆服务器
-                        await Task.Delay(50, ct);
-                    }
-                    catch (OperationCanceledException) { break; }
-                    catch (Exception ex) { Console.WriteLine($"[C{clientId:00}] Query err: {ex.Message}"); }
-                }
+    //            foreach (var taskId in pendingTaskIds.Keys)
+    //            {
+    //                try
+    //                {
+    //                    var q = BuildResultQuery(taskId);
+    //                    await writer.WriteLineAsync(q);
+    //                    // 轻微间隔，避免一次性刷爆服务器
+    //                    await Task.Delay(50, ct);
+    //                }
+    //                catch (OperationCanceledException) { break; }
+    //                catch (Exception ex) { Console.WriteLine($"[C{clientId:00}] Query err: {ex.Message}"); }
+    //            }
 
-                // 每轮查询间隔
-                await Task.Delay(500, ct);
-            }
-        }
-        catch (OperationCanceledException) { }
-    }, ct);
+    //            // 每轮查询间隔
+    //            await Task.Delay(500, ct);
+    //        }
+    //    }
+    //    catch (OperationCanceledException) { }
+    //}, ct);
 
     // 若服务端没有ack（协议异常），也不能永远挂死：这个场景下继续监听，
     // 一旦服务端主动返回 result（没有ack也可以），pending不会为空，我们不结束。

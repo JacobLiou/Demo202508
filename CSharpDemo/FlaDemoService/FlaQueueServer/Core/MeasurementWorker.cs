@@ -212,7 +212,7 @@ namespace FlaQueueServer.Core
                     var result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                     await _server.SendResultAsync(task, result, ct);
                     Log.Information("Task success {TaskId}", task.TaskId);
-                    DailyResultStore.Instance.AddOrUpdate(task.TaskId, result);
+                    HourlyResultStore.Instance.AddOrUpdate(task.TaskId, result);
                     // 标记完成（脱离 running）
                     RunningTaskTracker.Instance.MarkFinished(task.TaskId);
                 }
@@ -221,7 +221,7 @@ namespace FlaQueueServer.Core
                     // 最终失败返回（status = complete, success=false）
                     var failResult = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: ex.Message);
                     await _server.SendResultAsync(task, failResult, ct);
-                    DailyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
+                    HourlyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
                     // 标记完成（即使失败也不在 running）
                     RunningTaskTracker.Instance.MarkFinished(task.TaskId);
                     Log.Error(ex, "Task failed {TaskId}", task.TaskId);

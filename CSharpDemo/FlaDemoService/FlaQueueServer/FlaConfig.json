@@ -9,5 +9,5 @@
   "SwitchIndex": 1,
   "SwitchInput": 1,
 
-  "KeepFlaConnection": true
+  "KeepFlaConnection": false
 }

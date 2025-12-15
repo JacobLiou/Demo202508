@@ -74,14 +74,9 @@ namespace FlaQueueServer.Core
                         Log.Information("[MOCK] Zero begin for clientId {ClientId} task {TaskId}", task.ClientId, task.TaskId);
                         var delay = _rand.Next(_peakDelayMs.minMs, _peakDelayMs.maxMs + 1);
                         await Task.Delay(delay, ct);
-                        double start = ParseDouble(task.Params.GetValueOrDefault("start_m", "0.5"), 0.5);
-                        double end = ParseDouble(task.Params.GetValueOrDefault("end_m", "25"), 25);
-                        double pos = Math.Round(start + _rand.NextDouble() * Math.Max(0.01, end - start), 3);
-                        double db = Math.Round(-30 - _rand.NextDouble() * 25, 3);
-                        string id = task.Params.GetValueOrDefault("id", "01");
-                        string sn = task.Params.GetValueOrDefault("sn", $"SN{task.ClientId}A1");
-                        data = new { channel = task.ClientId, mode = task.Mode, peak_pos_m = pos, peak_db = db, id, sn };
-                        Log.Information("[MOCK] Zero done {TaskId}: pos={Pos}m db={Db}dB id={Id} sn={Sn}", task.TaskId, pos, db, id, sn);
+
+                        data = new { channel = task.ClientId, mode = task.Mode, };
+                        Log.Information("[MOCK] Zero done {TaskId}: pos={Pos}m db={Db}dB id={Id} sn={Sn}", task.TaskId);
                     }
                     else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))
                     {
@@ -105,7 +100,7 @@ namespace FlaQueueServer.Core
                     var result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                     await _server.SendResultAsync(task, result, ct);
                     Log.Information("[MOCK] Task success {TaskId}", task.TaskId);
-                    DailyResultStore.Instance.AddOrUpdate(task.TaskId, result);
+                    HourlyResultStore.Instance.AddOrUpdate(task.TaskId, result);
                     RunningTaskTracker.Instance.MarkFinished(task.TaskId);
                 }
                 catch (Exception ex)
@@ -113,7 +108,7 @@ namespace FlaQueueServer.Core
                     var failResult = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: ex.Message);
                     await _server.SendResultAsync(task, failResult, ct);
                     Log.Error(ex, "[MOCK] Task failed {TaskId}", task.TaskId);
-                    DailyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
+                    HourlyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
                     RunningTaskTracker.Instance.MarkFinished(task.TaskId);
                 }
                 finally

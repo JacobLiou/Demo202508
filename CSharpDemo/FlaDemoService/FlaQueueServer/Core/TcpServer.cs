@@ -65,7 +65,6 @@ namespace FlaQueueServer.Core
         {
             try
             {
-                await session.SendAsync(new { op = "hello", message = "FlaQueueServer ready" }, ct);
                 while (!ct.IsCancellationRequested && session.Connected)
                 {
                     var line = await session.ReadLineAsync(ct);
@@ -87,7 +86,7 @@ namespace FlaQueueServer.Core
 
                     if (req?.Command is null)
                     {
-                        await session.SendAsync(new { Command = "error", message = "missing op" }, ct);
+                        await session.SendAsync(new { Command = "error", message = "missing command" }, ct);
                         continue;
                     }
 
@@ -117,7 +116,7 @@ namespace FlaQueueServer.Core
                             {
                                 await session.SendAsync(new ResultMessage("result", tId, status: "running"), ct);
                             }
-                            else if (DailyResultStore.Instance.TryGet(tId, out var sResult))
+                            else if (HourlyResultStore.Instance.TryGet(tId, out var sResult))
                             {
                                 // stored final result (status=complete + success/data/error)
                                 await session.SendAsync(sResult!, ct);
