@@ -1,4 +1,5 @@
-﻿using FlaQueueServer.Models;
+﻿using FlaQueueServer.Devices;
+using FlaQueueServer.Models;
 using Serilog;
 using System.Threading.Channels;
 
@@ -14,14 +15,23 @@ namespace FlaQueueServer.Core
         private readonly (int minMs, int maxMs) _scanDelayMs;
         private readonly (int minMs, int maxMs) _peakDelayMs;
         private readonly Random _rand = new Random(Environment.TickCount);
+        private readonly FlaInstrumentAdapterMock _fla;
+        private readonly OpticalSwitchControllerMock _switch;
 
-        public MeasurementWorkerMock(Channel<MeasureTask> queue, TcpServer server,
+        public MeasurementWorkerMock(
+            Channel<MeasureTask> queue,
+            TcpServer server,
+            FlaInstrumentAdapterMock fla,
+            OpticalSwitchControllerMock opticalSwitch,
             int switchDelayMs = 200,
             int scanMinMs = 800, int scanMaxMs = 1500,
             int peakMinMs = 500, int peakMaxMs = 1000)
         {
             _queue = queue;
             _server = server;
+            _fla = fla;
+            _switch = opticalSwitch;
+
             _switchDelayMs = switchDelayMs;
             _scanDelayMs = (scanMinMs, scanMaxMs);
             _peakDelayMs = (peakMinMs, peakMaxMs);

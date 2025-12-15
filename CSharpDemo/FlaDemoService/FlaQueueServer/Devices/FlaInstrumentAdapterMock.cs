@@ -7,6 +7,10 @@ namespace FlaQueueServer.Devices
     {
         private static readonly ILogger Log = Serilog.Log.Logger;
 
+        public FlaInstrumentAdapterMock()
+        {
+        }
+
         // 生成一个简单的峰值与长度模拟；实际可替换为真实设备通讯
         public static object Run(int channel, string mode, Dictionary<string, string> p)
         {

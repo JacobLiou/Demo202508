@@ -40,7 +40,9 @@ try
     if (cfg.RunMode.Equals("mock", StringComparison.OrdinalIgnoreCase))
     {
         Log.Information("Started in MOCK mode");
-        var worker = new MeasurementWorkerMock(queue, server);
+        var adapter = new FlaInstrumentAdapterMock();
+        var sw = new OpticalSwitchControllerMock();
+        var worker = new MeasurementWorkerMock(queue, server, adapter, sw);
         serverTask = server.StartAsync(cts.Token);
         workerTask = worker.StartAsync(cts.Token);
     }
