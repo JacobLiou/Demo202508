@@ -40,12 +40,11 @@ namespace FlaQueueServer.Core
                 try
                 {
                     Log.Information("[MOCK] Task start {TaskId} ch={Channel} mode={Mode}", task.TaskId, task.Channel, task.Mode);
-                    await _server.SendResultAsync(task, new StatusMessage("status", task.TaskId, "switching"), ct);
 
+                    RunningTaskTracker.Instance.MarkRunning(task.TaskId);
                     await Task.Delay(_switchDelayMs, ct);
                     Log.Information("[MOCK] Switch set to {Channel} for task {TaskId}", task.Channel, task.TaskId);
-
-                    await _server.SendResultAsync(task, new StatusMessage("status", task.TaskId, "running"), ct);
+                    //await _server.SendResultAsync(task, new StatusMessage("status", task.TaskId, "running"), ct);
 
                     object data;
                     if (task.Mode.Equals("scan", StringComparison.OrdinalIgnoreCase))
@@ -81,6 +80,7 @@ namespace FlaQueueServer.Core
                     await _server.SendResultAsync(task, result, ct);
                     Log.Information("[MOCK] Task success {TaskId}", task.TaskId);
                     DailyResultStore.Instance.AddOrUpdate(task.TaskId, result);
+                    RunningTaskTracker.Instance.MarkFinished(task.TaskId);
                 }
                 catch (Exception ex)
                 {
@@ -88,6 +88,7 @@ namespace FlaQueueServer.Core
                     await _server.SendResultAsync(task, failResult, ct);
                     Log.Error(ex, "[MOCK] Task failed {TaskId}", task.TaskId);
                     DailyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
+                    RunningTaskTracker.Instance.MarkFinished(task.TaskId);
                 }
                 finally
                 {

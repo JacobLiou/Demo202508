@@ -71,6 +71,8 @@ namespace FlaQueueServer.Core
                     );
                     Log.Information("Switch set to {Channel} for task {TaskId}", task.Channel, task.TaskId);
 
+                    // 标记为运行中并通知客户端
+                    RunningTaskTracker.Instance.MarkRunning(task.TaskId);
                     await _server.SendResultAsync(task, new StatusMessage("status", task.TaskId, "running"), ct);
 
                     // 2) 连接 FLA —— 带重试
@@ -157,6 +159,8 @@ namespace FlaQueueServer.Core
                     await _server.SendResultAsync(task, result, ct);
                     Log.Information("Task success {TaskId}", task.TaskId);
                     DailyResultStore.Instance.AddOrUpdate(task.TaskId, result);
+                    // 标记完成（脱离 running）
+                    RunningTaskTracker.Instance.MarkFinished(task.TaskId);
                 }
                 catch (Exception ex)
                 {
@@ -164,6 +168,8 @@ namespace FlaQueueServer.Core
                     var failResult = new ResultMessage("result", task.TaskId, false, null, ex.Message);
                     await _server.SendResultAsync(task, failResult, ct);
                     DailyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
+                    // 标记完成（即使失败也不在 running）
+                    RunningTaskTracker.Instance.MarkFinished(task.TaskId);
                     Log.Error(ex, "Task failed {TaskId}", task.TaskId);
                 }
                 finally

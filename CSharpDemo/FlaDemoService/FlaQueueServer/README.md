@@ -28,13 +28,15 @@ dotnet run -- 5800
 
 - 查询状态
 ```json
-{"command":"status","params":{"taskId":"T2025..."}}
+{"command":"status","taskId":"T2025..."}
+```
+
+- 查询结果
+```json
+{"command":"status","taskId":"T2025..."}
 ```
 
 ### 服务端 → 客户端
-- 欢迎
-```json
-{"command":"hello","message":"FlaQueueServer ready"}
 ```
 - ACK
 ```json

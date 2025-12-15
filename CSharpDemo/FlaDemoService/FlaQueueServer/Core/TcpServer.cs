@@ -111,19 +111,20 @@ namespace FlaQueueServer.Core
                         case "status":
                             var reqStatus = JsonSerializer.Deserialize<StatusRequest>(line, options);
                             var tId = reqStatus?.TaskId != null ? reqStatus.TaskId : "";
-                            if (DailyResultStore.Instance.TryGet(tId, out var sResult))
-                                await session.SendAsync(new StatusMessage("status", tId, "complete"), ct);
-                            else
-                                await session.SendAsync(new StatusMessage("status", tId, "queued"), ct);
-                            break;
 
-                        case "result":
-                            var reqResult = JsonSerializer.Deserialize<ResultRequest>(line, options);
-                            var qTID = reqResult?.TaskId != null ? reqResult.TaskId : "";
-                            if (DailyResultStore.Instance.TryGet(qTID, out var result))
-                                await session.SendAsync(result!, ct);
+                            // 优先判断是否正在运行（由 RunningTaskTracker 标记）
+                            if (!string.IsNullOrEmpty(tId) && RunningTaskTracker.Instance.IsRunning(tId))
+                            {
+                                await session.SendAsync(new StatusMessage("status", tId, "running"), ct);
+                            }
+                            else if (DailyResultStore.Instance.TryGet(tId, out var sResult))
+                            {
+                                await session.SendAsync(sResult!, ct);
+                            }
                             else
-                                await session.SendAsync(new ResultMessage("result", qTID, false, null, "Still Runing Use status to query"), ct);
+                            {
+                                await session.SendAsync(new StatusMessage("status", tId, "queued"), ct);
+                            }
                             break;
 
                         default:
