@@ -39,19 +39,19 @@ try
     // 启动服务与后台Worker
     if (cfg.RunMode.Equals("mock", StringComparison.OrdinalIgnoreCase))
     {
+        Log.Information("Started in MOCK mode");
         var worker = new MeasurementWorkerMock(queue, server);
         serverTask = server.StartAsync(cts.Token);
         workerTask = worker.StartAsync(cts.Token);
-        Log.Information("Started in MOCK mode");
     }
     else
     {
+        Log.Information("Started in REAL mode");
         var adapter = new FlaInstrumentAdapter(cfg.FlaHost, cfg.FlaPort);
         var sw = new OpticalSwitchController(cfg.SwitchCom, cfg.SwitchBaud, cfg.SwitchIndex, cfg.SwitchInput);
         var worker = new MeasurementWorker(queue, server, adapter, sw);
         serverTask = server.StartAsync(cts.Token);
         workerTask = worker.StartAsync(cts.Token);
-        Log.Information("Started in REAL mode");
     }
 
     Log.Information("Server started. Waiting for tasks...");

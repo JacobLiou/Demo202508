@@ -77,7 +77,6 @@ namespace FlaQueueServer.Core
                     try
                     {
                         req = JsonSerializer.Deserialize<Request>(line, options);
-
                     }
                     catch (Exception ex)
                     {

@@ -75,7 +75,15 @@ namespace FlaQueueServer.Devices
                 // 可选：解析 double 值，这里只计数
                 count++;
             }
+
             return (resolution, count);
+        }
+
+        // 归零（测量范围重置）：将中心与窗口都设置为 00000
+        public async Task ZeroAsync(CancellationToken ct)
+        {
+            await SetCenterAsync("00000", ct);
+            await SetWindowAsync("00000", ct);
         }
 
         public async Task<(double pos_m, double db, double id, string sn, double sum)> AutoPeakAsync(

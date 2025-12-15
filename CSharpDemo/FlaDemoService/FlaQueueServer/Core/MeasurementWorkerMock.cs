@@ -46,7 +46,6 @@ namespace FlaQueueServer.Core
                     await Task.Delay(_switchDelayMs, ct);
                     Log.Information("[MOCK] Switch set to {Channel} for task {TaskId}", task.ClientId, task.TaskId);
 
-
                     object data;
                     if (task.Mode.Equals("scan", StringComparison.OrdinalIgnoreCase))
                     {

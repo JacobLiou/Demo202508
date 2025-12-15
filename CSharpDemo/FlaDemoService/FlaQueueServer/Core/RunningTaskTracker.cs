@@ -12,7 +12,8 @@ namespace FlaQueueServer.Core
 
         private readonly ConcurrentDictionary<string, byte> _running = new();
 
-        private RunningTaskTracker() { }
+        private RunningTaskTracker()
+        { }
 
         public void MarkRunning(string taskId) => _running.TryAdd(taskId, 0);
 

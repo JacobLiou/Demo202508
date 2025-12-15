@@ -124,7 +124,7 @@ namespace FlaQueueServer.Core
                     {
                         // 3) 执行归零操作
                         var peak = await RetryAsync(
-                            async () => await _fla.AutoPeakAsync(
+                            async () => await _fla.ZeroAsync(
                                 task.Params["start_m"], task.Params["end_m"],
                                 task.Params.GetValueOrDefault("count_mode", "2"),
                                 task.Params.GetValueOrDefault("algo", "2"),
