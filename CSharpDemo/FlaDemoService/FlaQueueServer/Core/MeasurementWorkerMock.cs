@@ -40,16 +40,17 @@ namespace FlaQueueServer.Core
                 try
                 {
                     Log.Information("[MOCK] Task start {TaskId} ch={Channel} mode={Mode}", task.TaskId, task.ClientId, task.Mode);
-                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "switching"), ct);
+                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "runnig"), ct);
 
                     RunningTaskTracker.Instance.MarkRunning(task.TaskId);
                     await Task.Delay(_switchDelayMs, ct);
                     Log.Information("[MOCK] Switch set to {Channel} for task {TaskId}", task.ClientId, task.TaskId);
-                    //await _server.SendResultAsync(task, new StatusMessage("status", task.TaskId, "running"), ct);
+
 
                     object data;
                     if (task.Mode.Equals("scan", StringComparison.OrdinalIgnoreCase))
                     {
+                        Log.Information("[MOCK] Scan begin for clientId {ClientId} task {TaskId}", task.ClientId, task.TaskId);
                         var delay = _rand.Next(_scanDelayMs.minMs, _scanDelayMs.maxMs + 1);
                         await Task.Delay(delay, ct);
                         double[] resOptions = new[] { 0.0025, 0.005, 0.01, 0.02 };
@@ -61,6 +62,7 @@ namespace FlaQueueServer.Core
                     }
                     else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
                     {
+                        Log.Information("[MOCK] Zero begin for clientId {ClientId} task {TaskId}", task.ClientId, task.TaskId);
                         var delay = _rand.Next(_peakDelayMs.minMs, _peakDelayMs.maxMs + 1);
                         await Task.Delay(delay, ct);
                         double start = ParseDouble(task.Params.GetValueOrDefault("start_m", "0.5"), 0.5);
@@ -74,6 +76,7 @@ namespace FlaQueueServer.Core
                     }
                     else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))
                     {
+                        Log.Information("[MOCK] Auto_peak begin for clientId {ClientId} task {TaskId}", task.ClientId, task.TaskId);
                         var delay = _rand.Next(_peakDelayMs.minMs, _peakDelayMs.maxMs + 1);
                         await Task.Delay(delay, ct);
                         double start = ParseDouble(task.Params.GetValueOrDefault("start_m", "0.5"), 0.5);
@@ -109,6 +112,7 @@ namespace FlaQueueServer.Core
                     _deviceLock.Release();
                 }
             }
+
             Log.Information("[MOCK] Worker stopped");
         }
 

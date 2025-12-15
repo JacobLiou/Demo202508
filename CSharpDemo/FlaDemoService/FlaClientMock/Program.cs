@@ -42,6 +42,8 @@ for (int i = 1; i <= clients; i++)
 }
 
 await Task.WhenAll(tasks);
+
+Thread.Sleep(2000); // 等待日志打印完
 Console.WriteLine("[Mock] All clients completed.");
 
 
@@ -136,8 +138,7 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
                 {
                     try
                     {
-                        var q = BuildStatusQuery(taskId);
-                        //var q = BuildResultQuery(taskId);
+                        var q = BuildResultQuery(taskId);
                         await writer.WriteLineAsync(q);
                         // 轻微间隔，避免一次性刷爆服务器
                         await Task.Delay(50, ct);
@@ -166,12 +167,6 @@ static async Task RunClientAsync(int clientId, string host, int port, int tasksP
     await allResultsArrived.Task;
 
     Console.WriteLine($"[C{clientId:00}] Completed. Closing.");
-}
-
-static string BuildStatusQuery(string taskId)
-{
-    var payloadObj = new { command = "status", taskId };
-    return JsonSerializer.Serialize(payloadObj);
 }
 
 static string BuildResultQuery(string taskId)
@@ -249,8 +244,6 @@ static void HandleServerMessage(int clientId, string line, ConcurrentDictionary<
 
 static (string payload, string taskIdHint) BuildSubmitPayload(int clientId, int seq, string mode, Random rand)
 {
-    var channel = clientId; // 1..16 对应通道
-
     if (mode == "scan")
     {
         var sr = (rand.Next(0, 3)).ToString();          // 0/1/2
@@ -260,7 +253,7 @@ static (string payload, string taskIdHint) BuildSubmitPayload(int clientId, int 
         var payloadObj = new
         {
             command = "submit",
-            channel,
+            clientId,
             mode = "scan",
             @params = new { sr_mode = sr, gain, wr_len = wr, x_center = xc }
         };
@@ -278,7 +271,7 @@ static (string payload, string taskIdHint) BuildSubmitPayload(int clientId, int 
         var payloadObj = new
         {
             command = "submit",
-            channel,
+            clientId,
             mode = "auto_peak",
             @params = new { start_m = start, end_m = end, count_mode = "2", algo = "2", width_m = width, threshold_db = thr, id, sn }
         };

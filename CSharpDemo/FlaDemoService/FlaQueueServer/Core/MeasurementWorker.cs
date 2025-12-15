@@ -56,9 +56,9 @@ namespace FlaQueueServer.Core
                 await _deviceLock.WaitAsync(ct);
                 try
                 {
-                    Log.Information("Task start {TaskId} ch={Channel} mode={Mode}", task.TaskId, task.ClientId, task.Mode);
+                    Log.Information("Task start {TaskId} ch={ClientId} mode={Mode}", task.TaskId, task.ClientId, task.Mode);
                     // notify switching (use unified ResultMessage with status)
-                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "switching"), ct);
+                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "running"), ct);
 
                     // 1) 切光开关 —— 带重试
                     await RetryAsync(
