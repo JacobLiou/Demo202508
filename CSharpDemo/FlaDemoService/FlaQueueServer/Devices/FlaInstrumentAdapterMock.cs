@@ -1,8 +1,9 @@
-﻿using Serilog;
+﻿using FlaQueueServer.Interfaces;
+using Serilog;
 
 namespace FlaQueueServer.Devices
 {
-    public static class FlaInstrumentAdapterMock
+    public class FlaInstrumentAdapterMock : IFlaDeviceCommunicator
     {
         private static readonly ILogger Log = Serilog.Log.Logger;
 
@@ -26,6 +27,41 @@ namespace FlaQueueServer.Devices
                 peak_db = peakDb,
                 length_m = length
             };
+        }
+
+        public Task<ResultMessage> AutoPeakAsync(string start, string end, string count, string algo, string width, string thr, string id, string sn, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task<ResultMessage> ScanAsync(CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SetCenterAsync(string centerRaw5, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SetConfigAsync(FlaConfig config, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SetGainAsync(string gainUi, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SetResolutionAsync(string mode, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
+        }
+
+        public Task SetWindowAsync(string windowRaw5, CancellationToken ct = default)
+        {
+            throw new NotImplementedException();
         }
     }
 }
