@@ -4,6 +4,16 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+  
+    <!-- 单文件发布 -->
+    <PublishSingleFile>true</PublishSingleFile>
+
+    <!-- 独立（携带运行时）；NativeAOT 本就不依赖 .NET 运行时，但此项仍建议设置 -->
+    <SelfContained>true</SelfContained>
+
+    <!-- 可选：减小体积（会影响某些全球化特性，如排序和日期/货币本地化） -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+
   </PropertyGroup>
 
 	<ItemGroup>

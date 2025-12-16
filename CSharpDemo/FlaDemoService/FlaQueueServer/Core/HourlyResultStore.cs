@@ -34,8 +34,8 @@ namespace FlaQueueServer.Core
             _cache = new MemoryCache(options);
             Log.Information("HourlyResultStore initialized with retention={Retention} and sizeLimit={SizeLimit}", _retention, _sizeLimit);
 
-            // start a periodic debug logger every 5 minutes
-            _logTimer = new Timer(_ => LogCacheContents(), state: null, dueTime: TimeSpan.FromMinutes(5), period: TimeSpan.FromMinutes(5));
+            //// start a periodic debug logger every 5 minutes
+            //_logTimer = new Timer(_ => LogCacheContents(), state: null, dueTime: TimeSpan.FromMinutes(5), period: TimeSpan.FromMinutes(5));
         }
 
         /// <summary>
