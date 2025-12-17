@@ -66,17 +66,20 @@ namespace FlaQueueServer.Core
                         double resolution = resOptions[_rand.Next(resOptions.Length)];
                         int pointCount = _rand.Next(180, 420);
                         double segmentLen = Math.Round(resolution * pointCount, 3);
-                        data = new { channel = task.ClientId, mode = task.Mode, resolution_m = resolution, point_count = pointCount, segment_length_m = segmentLen };
-                        Log.Information("[MOCK] Scan done {TaskId}: res={Res}m count={Count} len={Len}m", task.TaskId, resolution, pointCount, segmentLen);
+
+                        double zero_length = ParseDouble(task.Params.GetValueOrDefault("zero_length", "0.5"), 0.5);
+                        double scan_length = _rand.Next(10, 30) - zero_length;
+                        data = new { channel = task.ClientId, mode = task.Mode, scan_length };
+                        Log.Information("[MOCK] Scan done {TaskId}: scan_length={scan_length}m", task.TaskId, scan_length);
                     }
                     else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
                     {
                         Log.Information("[MOCK] Zero begin for clientId {ClientId} task {TaskId}", task.ClientId, task.TaskId);
                         var delay = _rand.Next(_peakDelayMs.minMs, _peakDelayMs.maxMs + 1);
                         await Task.Delay(delay, ct);
-
-                        data = new { channel = task.ClientId, mode = task.Mode, };
-                        Log.Information("[MOCK] Zero done {TaskId}: pos={Pos}m db={Db}dB id={Id} sn={Sn}", task.TaskId);
+                        int zero_length = _rand.Next(0, 30);
+                        data = new { channel = task.ClientId, mode = task.Mode, zero_length = zero_length };
+                        Log.Information("[MOCK] Zero done {TaskId}: zero_length={zero_length}", task.TaskId, zero_length);
                     }
                     else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))
                     {
