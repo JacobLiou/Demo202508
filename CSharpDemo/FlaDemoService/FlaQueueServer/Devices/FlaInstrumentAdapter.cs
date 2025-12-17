@@ -1,4 +1,6 @@
-﻿using System.Net.Sockets;
+﻿using FlaQueueServer.Core;
+using Serilog;
+using System.Net.Sockets;
 using System.Text;
 
 namespace FlaQueueServer.Devices
@@ -29,6 +31,8 @@ namespace FlaQueueServer.Devices
 
         private NetworkStream? _stream;
 
+        private readonly ILogger Log = Serilog.Log.ForContext<FlaInstrumentAdapter>();
+
         public FlaInstrumentAdapter(string host, int port)
         {
             _host = host;
@@ -39,9 +43,11 @@ namespace FlaQueueServer.Devices
         {
             _client = new TcpClient();
             await _client.ConnectAsync(_host, _port, ct);
+            Log.Information("Connected FLA");
             _stream = _client.GetStream();
             // 握手：设备会发 "OCI" 表示连接成功（协议文档）
             var ok = await ReadUntilAsync("OCI", TimeSpan.FromSeconds(5), ct);
+            Log.Information($"OCI Recv OK {ok}");
             if (!ok) throw new Exception("Handshake failed: OCI not received");
         }
 
@@ -69,10 +75,14 @@ namespace FlaQueueServer.Devices
         public async Task<double> ZeroLengthAsync(CancellationToken ct)
         {
             // 测量范围重置（归零）：X_00000 + WR_00000，均需返回 SET OK
+            Log.Debug($" {nameof(ZeroLengthAsync)} X_00000 ");
             await SetCenterAsync("00000", ct);  // X_00000
+
+            Log.Debug($" {nameof(ZeroLengthAsync)} WR_00000 ");
             await SetWindowAsync("00000", ct);  // WR_00000
 
             // 自动寻峰（多个峰）：使用默认参数（Start/End/Algo/Width/Threshold/Id/Sn）
+            Log.Debug($" {nameof(AutoPeakMultiAsync)} ");
             var peaks = await AutoPeakMultiAsync(
                 start: DEFAULT_START,
                 end: DEFAULT_END,
@@ -85,6 +95,7 @@ namespace FlaQueueServer.Devices
                 ct: ct
             );
 
+            Log.Debug($" Complete {nameof(AutoPeakMultiAsync)} ");
             // 产线约定取第 3 峰作为归零线长
             if (peaks.Count >= 3)
             {
@@ -117,6 +128,7 @@ namespace FlaQueueServer.Devices
             CancellationToken ct
         )
         {
+            Log.Debug($" {nameof(ScanLengthAsync)} AutoPeakMultiAsync ");
             var peaks = await AutoPeakMultiAsync(
                 start: DEFAULT_START,
                 end: DEFAULT_END,
@@ -132,6 +144,7 @@ namespace FlaQueueServer.Devices
             if (peaks.Count == 0)
                 return -1d;
 
+            Log.Debug($" {nameof(ScanLengthAsync)} AutoPeakMultiAsync End");
             // 代表产品端点的峰：采用距离最大（如需按 dB 选择，可改成幅值最大）
             var endpoint = peaks.OrderByDescending(x => x.Position_m).First();
             var productLen = endpoint.Position_m - zeroLength_m;

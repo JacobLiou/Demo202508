@@ -7,6 +7,16 @@
 - 共享设备串行执行（用 SemaphoreSlim 保护）。
 - 模拟测量：生成 `peak_pos_m`、`peak_db`、`length_m`。
 
+- 无窗口启动
+@echo off
+:: 切换到程序发布目录
+cd /d "D:\DotNet8Service\Publish"
+:: 隐藏窗口启动程序（>nul 2>&1 屏蔽控制台输出）
+start /b DotNet8ConsoleApp.exe >nul 2>&1
+echo 程序已后台启动！
+pause
+- 
+
 ## 运行
 ```bash
 # 需要 .NET 8 SDK
