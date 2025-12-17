@@ -1,6 +1,5 @@
 ﻿using Serilog;
 using System.Buffers;
-using System.Collections.Concurrent;
 using System.IO.Pipelines;
 using System.Net;
 using System.Net.Sockets;
@@ -9,24 +8,13 @@ using System.Threading.Channels;
 
 namespace FlaQueueServer.Core
 {
-
-
-
-
-    // ======= 业务 DTO（可替换为你现有的 Request/SubmitRequest/ResultRequest 等）=======
-    public sealed record SubmitRequest(string? Command, string ClientId, string Mode, Dictionary<string, object>? Params);
-    public sealed record ResultRequest(string? Command, string TaskId);
-    public sealed record AckMessage(string Command, string TaskId, string ClientId, string Mode);
-    public sealed record ResultMessage(string Command, string TaskId, string Status, object? Data = null, string? Error = null);
-
-    // 简单的结果缓存（替换为你已有的 HourlyResultStore）
-    public sealed class ResultStore
-    {
-        private readonly ConcurrentDictionary<string, ResultMessage> _map = new();
-        public void Set(ResultMessage msg) => _map[msg.TaskId] = msg;
-        public bool TryGet(string id, out ResultMessage? msg) => _map.TryGetValue(id, out msg);
-        public static ResultStore Instance { get; } = new ResultStore();
-    }
+    // =======
+    // 业务 DTO（可替换为你现有的 Request/SubmitRequest/ResultRequest 等）
+    // =======
+    public sealed record FastSubmitRequest(string? Command, string ClientId, string Mode, Dictionary<string, object>? Params);
+    public sealed record FastResultRequest(string? Command, string TaskId);
+    public sealed record FastAckMessage(string Command, string TaskId, string ClientId, string Mode);
+    public sealed record FastResultMessage(string Command, string TaskId, string Status, object? Data = null, string? Error = null);
 
     public sealed class FastTcpServer : IAsyncDisposable
     {
@@ -34,6 +22,7 @@ namespace FlaQueueServer.Core
         private readonly Channel<MeasureTask> _queue;  // 沿用你的测量任务队列
         private readonly Socket _listenSocket;
         private readonly CancellationTokenSource _cts = new();
+
         private readonly JsonSerializerOptions _jsonOpts = new()
         {
             PropertyNameCaseInsensitive = true,
@@ -132,18 +121,18 @@ namespace FlaQueueServer.Core
                         switch (cmd)
                         {
                             case "submit":
-                                SubmitRequest? submit;
+                                FastSubmitRequest? submit;
 
                                 if (line.IsSingleSegment)
                                 {
                                     // .NET 6/7/8 均可：Span 重载
-                                    submit = JsonSerializer.Deserialize<SubmitRequest>(line.FirstSpan, _jsonOpts);
+                                    submit = JsonSerializer.Deserialize<FastSubmitRequest>(line.FirstSpan, _jsonOpts);
                                 }
                                 else
                                 {
                                     // 多段缓冲：拼成连续数组（会有一次分配）
                                     var bytes = line.ToArray();
-                                    submit = JsonSerializer.Deserialize<SubmitRequest>(bytes, _jsonOpts);
+                                    submit = JsonSerializer.Deserialize<FastSubmitRequest>(bytes, _jsonOpts);
                                 }
 
                                 if (submit is null || string.IsNullOrWhiteSpace(submit.ClientId) || string.IsNullOrWhiteSpace(submit.Mode))
@@ -170,22 +159,22 @@ namespace FlaQueueServer.Core
                                 }
 
                                 // ACK
-                                await WriteJsonAsync(writer, new AckMessage("ack", taskId, submit.ClientId, submit.Mode), ct);
+                                await WriteJsonAsync(writer, new FastAckMessage("ack", taskId, submit.ClientId, submit.Mode), ct);
                                 break;
 
                             case "result":
-                                ResultRequest? resultReq;
+                                FastResultRequest? resultReq;
 
                                 if (line.IsSingleSegment)
                                 {
                                     // .NET 6/7/8 均可：Span 重载
-                                    resultReq = JsonSerializer.Deserialize<ResultRequest>(line.FirstSpan, _jsonOpts);
+                                    resultReq = JsonSerializer.Deserialize<FastResultRequest>(line.FirstSpan, _jsonOpts);
                                 }
                                 else
                                 {
                                     // 多段缓冲：拼成连续数组（会有一次分配）
                                     var bytes = line.ToArray();
-                                    resultReq = JsonSerializer.Deserialize<ResultRequest>(bytes, _jsonOpts);
+                                    resultReq = JsonSerializer.Deserialize<FastResultRequest>(bytes, _jsonOpts);
                                 }
 
                                 var tId = resultReq?.TaskId ?? string.Empty;
@@ -196,7 +185,7 @@ namespace FlaQueueServer.Core
                                 {
                                     await WriteJsonAsync(writer, new ResultMessage("result", tId, "running"), ct);
                                 }
-                                else if (ResultStore.Instance.TryGet(tId, out var final))
+                                else if (HourlyResultStore.Instance.TryGet(tId, out var final))
                                 {
                                     await WriteJsonAsync(writer, final!, ct);
                                 }
@@ -297,6 +286,7 @@ namespace FlaQueueServer.Core
         private sealed class PipeSession : IResultSession
         {
             private readonly PipeWriter _writer;
+
             public PipeSession(PipeWriter writer) => _writer = writer;
 
             public Task SendAsync(object payload, CancellationToken ct) => WriteJsonAsync(_writer, payload, ct);
@@ -318,5 +308,3 @@ namespace FlaQueueServer.Core
         );
     }
 }
-
-
