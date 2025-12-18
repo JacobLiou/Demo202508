@@ -1,4 +1,3 @@
-﻿using FlaQueueServer.Core;
 using Serilog;
 using System.Net.Sockets;
 using System.Text;
@@ -161,7 +160,7 @@ namespace FlaQueueServer.Devices
         {
             var sum = CalcSum(new[] { start, end, count, algo, width, thr, id, sn }); // 绝对值求和（含 ID/SN 数字部分），容差 0.1
             var cmd = $"SCAN_{start}_{end}_{count}_{algo}_{width}_{thr}_{id}_{sn}_{sum:F3}_NACS";
-            await SendLineAsync(cmd, ct);
+            await SendLineAsync(cmd, ct, TimeSpan.FromSeconds(10));
 
             var points = new List<PeakPoint>();
             for (int i = 0; i < 256; i++) // 读取所有 OP_ 行
@@ -211,17 +210,61 @@ namespace FlaQueueServer.Devices
 
         private async Task SendAndExpectOkAsync(string cmd, CancellationToken ct)
         {
-            await SendLineAsync(cmd, ct);
-            // 文档描述设置类指令回传 "SET OK"
-            var line = await ReadLineAsync(ct);
+            await SendLineAsync(cmd, ct, TimeSpan.FromSeconds(10));
+            string line;
+            try
+            {
+                line = await ReadLineAsync(TimeSpan.FromSeconds(5), ct);
+            }
+            catch (TimeoutException tex)
+            {
+                throw new TimeoutException($"Timeout waiting for OK for '{cmd}' (5s).", tex);
+            }
+
             if (!line.Contains("OK", StringComparison.OrdinalIgnoreCase))
-                throw new Exception($"Device did not return OK for {cmd}: '{line}'");
+                throw new InvalidOperationException($"Device did not return OK for {cmd}: '{line}'");
         }
 
-        private async Task SendLineAsync(string line, CancellationToken ct)
+        private async Task SendLineAsync(string line, CancellationToken ct, TimeSpan timeout)
         {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeout);
             var buf = Encoding.ASCII.GetBytes(line + "\n");
-            await _stream!.WriteAsync(buf, 0, buf.Length, ct);
+            try
+            {
+                await _stream!.WriteAsync(buf, 0, buf.Length, ct);
+            }
+            catch (OperationCanceledException) when (cts.IsCancellationRequested)
+            {
+                throw new TimeoutException("ReadLineAsync timed out while waiting for device response.");
+            }
+        }
+
+        private async Task<string> ReadLineAsync(TimeSpan timeout, CancellationToken ct)
+        {
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            cts.CancelAfter(timeout);
+
+            var sb = new StringBuilder();
+            var buffer = new byte[1];
+
+            try
+            {
+                while (true)
+                {
+                    var n = await _stream!.ReadAsync(buffer.AsMemory(0, 1), cts.Token);
+                    if (n == 0) break; // 连接关闭
+                    var ch = (char)buffer[0];
+                    if (ch == '\n') break;
+                    sb.Append(ch);
+                }
+            }
+            catch (OperationCanceledException) when (cts.IsCancellationRequested)
+            {
+                throw new TimeoutException("ReadLineAsync timed out while waiting for device response.");
+            }
+
+            return sb.ToString().Trim();
         }
 
         private async Task<string> ReadLineAsync(CancellationToken ct)
