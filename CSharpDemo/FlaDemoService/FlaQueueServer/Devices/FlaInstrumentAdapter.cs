@@ -6,6 +6,46 @@ namespace FlaQueueServer.Devices
 {
     /// <summary>
     /// Fla设备驱动控制器 (TCP 协议)
+    /// 归零：获取基准长度（通常是光纤的“原始长度”或参考点）。
+    /// 目标：找到光纤链路的“原始长度”，作为后续扫描计算的参考。
+    ////流程概述
+    ////设置测量参数
+    ////分辨率（SR_0 / SR_1 / SR_2）
+    ////增益（G_1 / G_2）
+    ////通道（如果有）
+
+    ////执行一次完整测量（SCAN）
+    ////发送 SCAN 指令
+    ////接收数据（直到结束符 !）
+
+    ////自动寻峰（或手动分析）
+    ////使用 SCAN_AAA_BBB_...自动寻峰指令，或本地算法分析 SCAN 数据
+    ////找到反射峰列表
+
+    ////确定初始长度
+    ////按产线规则取第 3 个峰（或最远峰）作为“归零长度”
+    ////保存该长度用于后续扫描计算
+
+    //目标：根据归零结果和当前测量，计算光纤长度。
+    //流程概述
+    //设置窗口和游标
+
+    //根据归零长度，设置 X_ 和 WR_，确保窗口覆盖目标区域
+    //例如：X_006.0，WR_01.00
+
+    //执行测量（SCAN）
+
+    //发送 SCAN 指令
+    //获取数据
+    //长度计算
+
+    //如果使用自动寻峰：发送 SCAN_AAA_BBB_...指令，直接返回峰位置
+    //如果使用原始数据：根据起点位置 + 数据索引 × 分辨率，计算目标点距离
+
+    //输出最终长度
+
+    //与归零长度结合，得到实际光纤长度或差值
+    //扫描：在归零基础上，测量并计算目标长度（可能是跳线、段长、变化量）。
     /// </summary>
     public class FlaInstrumentAdapter
     {
@@ -160,12 +200,15 @@ namespace FlaQueueServer.Devices
         {
             var sum = CalcSum(new[] { start, end, count, algo, width, thr, id, sn }); // 绝对值求和（含 ID/SN 数字部分），容差 0.1
             var cmd = $"SCAN_{start}_{end}_{count}_{algo}_{width}_{thr}_{id}_{sn}_{sum:F3}_NACS";
+            Log.Debug(cmd);
             await SendLineAsync(cmd, ct, TimeSpan.FromSeconds(10));
 
             var points = new List<PeakPoint>();
             for (int i = 0; i < 256; i++) // 读取所有 OP_ 行
             {
-                var line = await ReadLineAsync(ct);
+                var line = await ReadLineAsync(TimeSpan.FromSeconds(5), ct);
+                Log.Debug($"Recv: {line}");
+
                 if (line is null) break;
 
                 if (line.Contains("INPUT_ERROR", StringComparison.OrdinalIgnoreCase))
@@ -189,6 +232,7 @@ namespace FlaQueueServer.Devices
 
                 points.Add(new PeakPoint(pos, db, idResp, snResp));
             }
+
             return points;
         }
 
@@ -211,18 +255,19 @@ namespace FlaQueueServer.Devices
         private async Task SendAndExpectOkAsync(string cmd, CancellationToken ct)
         {
             await SendLineAsync(cmd, ct, TimeSpan.FromSeconds(10));
-            string line;
+
             try
             {
-                line = await ReadLineAsync(TimeSpan.FromSeconds(5), ct);
+                var ok = await ReadUntilAsync("OK", TimeSpan.FromSeconds(5), ct);
+                if (!ok)
+                {
+                    throw new Exception($"Did not receive OK for '{cmd}'");
+                }
             }
             catch (TimeoutException tex)
             {
                 throw new TimeoutException($"Timeout waiting for OK for '{cmd}' (5s).", tex);
             }
-
-            if (!line.Contains("OK", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException($"Device did not return OK for {cmd}: '{line}'");
         }
 
         private async Task SendLineAsync(string line, CancellationToken ct, TimeSpan timeout)
@@ -236,7 +281,7 @@ namespace FlaQueueServer.Devices
             }
             catch (OperationCanceledException) when (cts.IsCancellationRequested)
             {
-                throw new TimeoutException("ReadLineAsync timed out while waiting for device response.");
+                throw new TimeoutException("SendLineAsync timed out while waiting for device response.");
             }
         }
 
@@ -255,6 +300,7 @@ namespace FlaQueueServer.Devices
                     var n = await _stream!.ReadAsync(buffer.AsMemory(0, 1), cts.Token);
                     if (n == 0) break; // 连接关闭
                     var ch = (char)buffer[0];
+                    Log.Debug(ch.ToString());
                     if (ch == '\n') break;
                     sb.Append(ch);
                 }
@@ -264,21 +310,6 @@ namespace FlaQueueServer.Devices
                 throw new TimeoutException("ReadLineAsync timed out while waiting for device response.");
             }
 
-            return sb.ToString().Trim();
-        }
-
-        private async Task<string> ReadLineAsync(CancellationToken ct)
-        {
-            var sb = new StringBuilder();
-            var buffer = new byte[1];
-            while (true)
-            {
-                var n = await _stream!.ReadAsync(buffer.AsMemory(0, 1), ct);
-                if (n == 0) break;
-                var ch = (char)buffer[0];
-                if (ch == '\n') break;
-                sb.Append(ch);
-            }
             return sb.ToString().Trim();
         }
 
@@ -303,27 +334,6 @@ namespace FlaQueueServer.Devices
             return false;
         }
 
-        private async Task<string> ReadUntilBangAsync(CancellationToken ct)
-        {
-            var mem = new MemoryStream();
-            var buf = new byte[1024];
-            while (true)
-            {
-                var n = await _stream!.ReadAsync(buf, ct);
-                if (n <= 0) break;
-                int bangIdx = Array.IndexOf(buf, (byte)'!');
-                if (bangIdx >= 0)
-                {
-                    mem.Write(buf, 0, bangIdx);
-                    break;
-                }
-
-                mem.Write(buf, 0, n);
-            }
-
-            return Encoding.ASCII.GetString(mem.ToArray());
-        }
-
         private static string Fmt5(string raw)
         {
             var s = raw.Trim();
@@ -331,12 +341,6 @@ namespace FlaQueueServer.Devices
                 s = s[..5];
 
             return s.PadLeft(5, '0');
-        }
-
-        private static double ParseNumber(string s)
-        {
-            double.TryParse(new string(s.Where(c => char.IsDigit(c) || c == '.' || c == '-').ToArray()), out var v);
-            return v;
         }
 
         private static double CalcSum(IEnumerable<string> parts)
