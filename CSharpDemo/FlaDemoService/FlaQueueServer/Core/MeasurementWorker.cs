@@ -127,6 +127,7 @@ namespace FlaQueueServer.Core
                         Log.Debug("Using long connection for task {TaskId}", task.TaskId);
                     }
 
+                    var result = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: null);
                     object data;
                     if (task.Mode.Equals("scan", StringComparison.OrdinalIgnoreCase))
                     {
@@ -142,13 +143,16 @@ namespace FlaQueueServer.Core
                             Log
                         );
 
-
-                        data = new
+                        if (res > 0)
                         {
-                            ClientId = task.ClientId,
-                            mode = task.Mode,
-                            scan_length = res
-                        };
+                            data = new
+                            {
+                                ClientId = task.ClientId,
+                                mode = task.Mode,
+                                scan_length = res
+                            };
+                            result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
+                        }
 
                         Log.Information("FLA scan done for task {TaskId}: scan_length={Res}", task.TaskId, res);
                     }
@@ -164,12 +168,17 @@ namespace FlaQueueServer.Core
                             Log
                         );
 
-                        data = new
+                        if (zero > 0)
                         {
-                            ClientId = task.ClientId,
-                            mode = task.Mode,
-                            zero_length = zero,
-                        };
+                            data = new
+                            {
+                                ClientId = task.ClientId,
+                                mode = task.Mode,
+                                zero_length = zero,
+                            };
+                            result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
+                        }
+
                         Log.Information("FLA zero done for task {TaskId}", task.TaskId);
                     }
                     else
@@ -177,8 +186,6 @@ namespace FlaQueueServer.Core
                         throw new Exception($"unknown mode {task.Mode}");
                     }
 
-                    // 成功返回（status = complete）
-                    var result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                     await _server.SendResultAsync(task, result, ct);
                     Log.Information("Task success {TaskId}", task.TaskId);
                     HourlyResultStore.Instance.AddOrUpdate(task.TaskId, result);

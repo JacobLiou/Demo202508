@@ -1,6 +1,7 @@
 ﻿using FlaQueueServer.Models;
 using Serilog;
 using System.IO.Ports;
+using System.Text;
 
 namespace FlaQueueServer.Devices
 {
@@ -37,7 +38,10 @@ namespace FlaQueueServer.Devices
                     Handshake = Handshake.None,
                     ReadTimeout = 1000,
                     WriteTimeout = 1000,
-                    NewLine = "\r\n"
+                    // === 关键改造 1：ASCII 编码 + 终止符 CRLF ===
+                    Encoding = Encoding.ASCII,   // 设备要求 8-bit ASCII
+                    NewLine = "\r\n",            // 设备终止符 <CR><LF>
+
                 };
 
                 _port.Open();
@@ -61,8 +65,8 @@ namespace FlaQueueServer.Devices
 
         public async Task SwitchToOutputAsync(int outputChannel, CancellationToken ct)
         {
-            var cmd = $"SW {_switchIndex} SPOS {_inputChannel} {outputChannel}\r\n";
-            Log.Debug("SWITCH send: {Cmd}", cmd.Replace("\r\n", "\\r\\n"));
+            var cmd = $"SW {_switchIndex} SPOS {_inputChannel} {outputChannel}";
+            Log.Debug($"SWITCH send: {cmd}");
             await WriteAsync(cmd, ct);
             var line = await ReadLineAsync(ct); // 期待 OK
             Log.Debug("SWITCH recv: {Line}", line);
@@ -74,20 +78,27 @@ namespace FlaQueueServer.Devices
         public async Task<int> GetActualOutputAsync(int switchIndex, CancellationToken ct = default)
         {
             var cmd = $"SW {switchIndex} POS";
-            Log.Debug("SWITCH send: {Cmd}", cmd.Replace("\r\n", "\\r\\n"));
+            Log.Debug("SWITCH send: {Cmd}", cmd);
             await WriteAsync(cmd, ct);
-            var line = await ReadLineAsync(ct); // 期待 OK
+
+            var line = await ReadLineAsync(ct);
             Log.Debug("SWITCH recv: {Line}", line);
             EnsureOkOrThrow(line);
+
+            // 设备返回格式：例如 "SW 3 POS: 1->8"（先读到 OK，再读详细？视设备回显模式）
+            // 若需要解析具体 1->8，可继续 ReadLine，或按你设备回包解析规则调整。
             await ReadUntilPromptAsync(ct);
             Log.Debug("SWITCH prompt '>' received");
+
+            // 如果设备实际返回的是数据行而非 OK，这里可以根据你设备回包进一步解析
             return int.TryParse(line, out var result) ? result : -1;
+
         }
 
         public async Task<long> GetCountAsync(int switchIndex, CancellationToken ct = default)
         {
             var cmd = $"SW {switchIndex} CNT";
-            Log.Debug("SWITCH send: {Cmd}", cmd.Replace("\r\n", "\\r\\n"));
+            Log.Debug("SWITCH send: {Cmd}");
             await WriteAsync(cmd, ct);
             var line = await ReadLineAsync(ct); // 期待 OK
             Log.Debug("SWITCH recv: {Line}", line);
@@ -146,14 +157,15 @@ namespace FlaQueueServer.Devices
         private Task WriteAsync(string cmd, CancellationToken ct) =>
             Task.Run(() =>
             {
-                _port.Write(cmd);
-                Log.Debug($"Write {cmd}");
+                // 依据 NewLine = "\r\n" 自动附加终止符
+                _port!.WriteLine(cmd);
+                Log.Debug("WriteLine {Cmd}", cmd);
             }, ct);
 
         private Task<string?> ReadLineAsync(CancellationToken ct) =>
             Task.Run(() =>
             {
-                try { return _port.ReadLine(); }
+                try { return _port!.ReadLine(); }
                 catch { return null; }
             }, ct);
 
@@ -164,7 +176,7 @@ namespace FlaQueueServer.Devices
                 {
                     while (true)
                     {
-                        var ch = (char)_port.ReadChar();
+                        var ch = (char)_port!.ReadChar();
                         if (ch == '>') break;
                     }
                 }
