@@ -1,5 +1,6 @@
 ﻿using OFDRCentralControlServer.Models;
 using Serilog;
+using System.Diagnostics;
 using System.IO.Ports;
 using System.Text;
 
@@ -36,7 +37,6 @@ namespace OFDRCentralControlServer.Devices
                 // === 关键改造 1：ASCII 编码 + 终止符 CRLF ===
                 Encoding = Encoding.ASCII,   // 设备要求 8-bit ASCII
                 NewLine = "\r\n",            // 设备终止符 <CR><LF>
-
             };
         }
 
@@ -47,7 +47,7 @@ namespace OFDRCentralControlServer.Devices
                 if (!IsConnected)
                     _port!.Open();
                 Log.Information("Switch opened {Port}@{Baud}", _portName, _baud);
-                IsConnected = await GetEchoAsync(CancellationToken.None);
+                IsConnected = true;//await SetLocalAsync();
             }
             catch (Exception ex)
             {
@@ -70,19 +70,11 @@ namespace OFDRCentralControlServer.Devices
             var cmd = $"SW {_switchIndex} SPOS {_inputChannel} {outputChannel}";
             Log.Debug($"SWITCH send: {cmd}");
             await WriteAsync(cmd, ct);
-            var line = await ReadLineAsync(ct); // 期待 OK
-            Log.Debug("SWITCH recv: {Line}", line);
-            EnsureOkOrThrow(line);
-            await ReadUntilPromptAsync(ct);
-            Log.Debug("SWITCH prompt '>' received");
 
-            await Task.Delay(50);
+            var lines = await ReadUntilPromptAsync(ct, TimeSpan.FromSeconds(1));
+            Log.Debug("SWITCH recv: {Line}", lines);
 
-            var actualOutput = await GetActualOutputAsync(_switchIndex, ct);
-            if (actualOutput != outputChannel)
-            {
-                Log.Error("Switch to output {OutputChannel} failed, actual is {ActualOutput}", outputChannel, actualOutput);
-            }
+            EnsureOkOrThrow(lines);
         }
 
         public async Task<int> GetActualOutputAsync(int switchIndex, CancellationToken ct = default)
@@ -91,31 +83,15 @@ namespace OFDRCentralControlServer.Devices
             Log.Debug("SWITCH send: {Cmd}", cmd);
             await WriteAsync(cmd, ct);
 
-            var line = await ReadLineAsync(ct);
-            Log.Debug("SWITCH recv: {Line}", line);
-            EnsureOkOrThrow(line);
-
             // 设备返回格式：例如 "SW 3 POS: 1->8"（先读到 OK，再读详细？视设备回显模式）
             // 若需要解析具体 1->8，可继续 ReadLine，或按你设备回包解析规则调整。
-            await ReadUntilPromptAsync(ct);
-            Log.Debug("SWITCH prompt '>' received");
+            var lines = await ReadUntilPromptAsync(ct, TimeSpan.FromSeconds(1));
+            Log.Debug("SWITCH recv: {Line}", lines);
+
+            EnsureOkOrThrow(lines);
 
             // 如果设备实际返回的是数据行而非 OK，这里可以根据你设备回包进一步解析
-            return int.TryParse(line, out var result) ? result : -1;
-
-        }
-
-        public async Task<long> GetCountAsync(int switchIndex, CancellationToken ct = default)
-        {
-            var cmd = $"SW {switchIndex} CNT";
-            Log.Debug("SWITCH send: {Cmd}");
-            await WriteAsync(cmd, ct);
-            var line = await ReadLineAsync(ct); // 期待 OK
-            Log.Debug("SWITCH recv: {Line}", line);
-            EnsureOkOrThrow(line);
-            await ReadUntilPromptAsync(ct);
-            Log.Debug("SWITCH prompt '>' received");
-            return long.TryParse(line, out var result) ? result : -1;
+            return int.TryParse(lines, out var result) ? result : -1;
         }
 
         public async Task MultiSwitchAsync(IEnumerable<SwitchRoute> routes, CancellationToken ct = default)
@@ -128,31 +104,15 @@ namespace OFDRCentralControlServer.Devices
             EnsureOkOrThrow(line);
         }
 
-        public async Task SetEchoAsync(bool on, CancellationToken ct = default)
-        {
-            // 开/关回显
-            var cmd = $"ECHO {(on ? "ON" : "OFF")}";
-            await WriteAsync(cmd, ct);
-            var line = await ReadLineAsync(ct);
-            EnsureOkOrThrow(line);
-        }
-
-        public async Task<bool> GetEchoAsync(CancellationToken ct = default)
-        {
-            var cmd = $"ECHO";
-            await WriteAsync(cmd, ct);
-            var line = await ReadLineAsync(ct);
-            if (line is null) ThrowUnexpected(line);
-            return line!.Contains("ON", StringComparison.OrdinalIgnoreCase);
-        }
-
-        public async Task SetLocalAsync(bool on, CancellationToken ct = default)
+        public async Task<bool> SetLocalAsync(CancellationToken ct = default)
         {
             // 切本地/远程。[1]
-            var cmd = $"Local {(on ? "ON" : "OFF")}";
+            var cmd = $"Local OFF";
             await WriteAsync(cmd, ct);
             var line = await ReadLineAsync(ct);
-            EnsureOkOrThrow(line);
+            if (!string.IsNullOrEmpty(line))
+                return true;
+            return false;
         }
 
         public async Task ResetAsync(CancellationToken ct = default)
@@ -179,19 +139,38 @@ namespace OFDRCentralControlServer.Devices
                 catch { return null; }
             }, ct);
 
-        private Task ReadUntilPromptAsync(CancellationToken ct) =>
-            Task.Run(() =>
-            {
-                try
+        /// <summary>
+        /// 从串口读取直到遇到提示符 '>'；在 timeout 或取消时返回 false。
+        /// </summary>
+
+        public async Task<string?> ReadUntilPromptAsync(
+            CancellationToken ct,
+            TimeSpan timeout
+        )
+        {
+            return await Task.Run(() =>
                 {
-                    while (true)
+                    var buffer = new byte[256];
+                    var sb = new StringBuilder(1024);
+                    Stopwatch stopwatch = Stopwatch.StartNew();
+                    try
                     {
-                        var ch = (char)_port!.ReadChar();
-                        if (ch == '>') break;
+                        while (stopwatch.ElapsedMilliseconds <= timeout.TotalMilliseconds)
+                        {
+                            var ch = (char)_port!.ReadChar();
+                            sb.Append(ch);
+                            if (ch == '>') break;
+                        }
+
+                        return sb.ToString();
                     }
-                }
-                catch { }
-            }, ct);
+                    catch (Exception ex)
+                    {
+                        Log.Error($"ReadUntilPromptAsync error: {ex}");
+                        return null;
+                    }
+                }, ct);
+        }
 
         public void Dispose()
         {

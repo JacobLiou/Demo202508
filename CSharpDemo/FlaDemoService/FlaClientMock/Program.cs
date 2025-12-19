@@ -1,7 +1,42 @@
+using Serilog;
+using Serilog.Events;
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+
+Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "logs"));
+
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Debug()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .Enrich.FromLogContext()
+    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] ({ThreadId}) {Message:lj}{NewLine}{Exception}")
+    .WriteTo.File(Path.Combine("logs", "server-.log"),
+                  outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] ({ThreadId}) {Message:lj}{NewLine}{Exception}",
+                  rollingInterval: RollingInterval.Day,
+                  retainedFileCountLimit: 14,
+                  shared: true)
+    .CreateLogger();
+
+//var cts = new CancellationTokenSource();
+//Console.CancelKeyPress += (s, e) =>
+//{
+//    e.Cancel = true; cts.Cancel();
+//    Log.Information("\n[Server] Shutting down...");
+//};
+
+//FlaInstrumentAdapter flaInstrumentAdapter = new FlaInstrumentAdapter("172.16.153.123", 4300);
+//await flaInstrumentAdapter.ConnectAsync(cts.Token);
+
+//Console.WriteLine("Zero");
+//var dd = await flaInstrumentAdapter.ZeroLengthAsync(cts.Token);
+//Console.ReadLine();
+
+//await flaInstrumentAdapter.ScanLengthAsync(dd, cts.Token);
+//Console.ReadKey();
+
+
 
 // =====================================================
 // FlaClientMock - 模拟最多16个客户端的 TCP 长连接 & 提交队列请求

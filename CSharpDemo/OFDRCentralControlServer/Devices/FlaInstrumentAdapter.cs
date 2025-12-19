@@ -3,6 +3,7 @@ using System.Buffers;
 using System.Globalization;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 
 namespace OFDRCentralControlServer.Devices
 {
@@ -120,46 +121,46 @@ namespace OFDRCentralControlServer.Devices
         /// <exception cref="InvalidOperationException"></exception>
         public async Task<double> ZeroLengthAsync(CancellationToken ct)
         {
-            // 测量范围重置（归零）：X_00000 + WR_00000，均需返回 SET OK
-            Log.Debug($" {nameof(ZeroLengthAsync)} SR_0 ");
-            await SetResolutionAsync("00000", ct);  // SR_0
+            //// 测量范围重置（归零）：X_00000 + WR_00000，均需返回 SET OK
+            //Log.Debug($" {nameof(ZeroLengthAsync)} SR_0 ");
+            //await SetResolutionAsync("00000", ct);  // SR_0
 
-            Log.Debug($" {nameof(ZeroLengthAsync)} G_1 ");
-            await SetGainAsync("1", ct);  // G_1
+            //Log.Debug($" {nameof(ZeroLengthAsync)} G_1 ");
+            //await SetGainAsync("1", ct);  // G_1
 
-            Log.Debug($" {nameof(ZeroLengthAsync)} X_00000 ");
-            await SetCenterAsync("00000", ct);  // X_00000
+            //Log.Debug($" {nameof(ZeroLengthAsync)} X_00000 ");
+            //await SetCenterAsync("00000", ct);  // X_00000
 
-            Log.Debug($" {nameof(ZeroLengthAsync)} WR_00000 ");
-            await SetWindowAsync("00000", ct);  // WR_00000
+            //Log.Debug($" {nameof(ZeroLengthAsync)} WR_00000 ");
+            //await SetWindowAsync("00000", ct);  // WR_00000
 
-            // 自动寻峰（多个峰）：使用默认参数（Start/End/Algo/Width/Threshold/Id/Sn）
-            Log.Debug($" {nameof(AutoPeakMultiAsync)} ");
-            //var peaks = await AutoPeakMultiAsync(
-            //    start: DEFAULT_START,
-            //    end: DEFAULT_END,
-            //    count: "2",
-            //    algo: DEFAULT_ALGO,
-            //    width: DEFAULT_WIDTH,
-            //    thr: DEFAULT_THRESHOLD,
-            //    id: DEFAULT_ID,
-            //    sn: DEFAULT_SN,
-            //    ct: ct
-            //);
+            //// 自动寻峰（多个峰）：使用默认参数（Start/End/Algo/Width/Threshold/Id/Sn）
+            //Log.Debug($" {nameof(AutoPeakMultiAsync)} ");
+            ////var peaks = await AutoPeakMultiAsync(
+            ////    start: DEFAULT_START,
+            ////    end: DEFAULT_END,
+            ////    count: "2",
+            ////    algo: DEFAULT_ALGO,
+            ////    width: DEFAULT_WIDTH,
+            ////    thr: DEFAULT_THRESHOLD,
+            ////    id: DEFAULT_ID,
+            ////    sn: DEFAULT_SN,
+            ////    ct: ct
+            ////);
 
-            //// 产线约定取第 3 峰作为归零线长
-            //if (peaks.Count >= 3)
-            //{
-            //    var third = peaks[2];
-            //    return third.Position_m;
-            //}
+            ////// 产线约定取第 3 峰作为归零线长
+            ////if (peaks.Count >= 3)
+            ////{
+            ////    var third = peaks[2];
+            ////    return third.Position_m;
+            ////}
 
-            //// 兜底：不足 3 个峰，取距离最大
-            //if (peaks.Count > 0)
-            //{
-            //    var maxDist = peaks.OrderByDescending(x => x.Position_m).First();
-            //    return maxDist.Position_m;
-            //}
+            ////// 兜底：不足 3 个峰，取距离最大
+            ////if (peaks.Count > 0)
+            ////{
+            ////    var maxDist = peaks.OrderByDescending(x => x.Position_m).First();
+            ////    return maxDist.Position_m;
+            ////}
 
             var scan = await ScanAsync(
                 windowLength_m: 30.0,
@@ -169,7 +170,7 @@ namespace OFDRCentralControlServer.Devices
 
             if (scan != null)
             {
-                Log.Debug($" Scan Y Count {scan.Y.Length} ");
+                Log.Debug(JsonSerializer.Serialize(scan));
                 // 兜底2：仍无峰，取最大值位置
                 if (scan.Y.Length > 0)
                 {
@@ -208,27 +209,52 @@ namespace OFDRCentralControlServer.Devices
             CancellationToken ct
         )
         {
-            Log.Debug($" {nameof(ScanLengthAsync)} AutoPeakMultiAsync ");
-            var peaks = await AutoPeakMultiAsync(
-                start: DEFAULT_START,
-                end: DEFAULT_END,
-                count: "2",
-                algo: DEFAULT_ALGO,
-                width: DEFAULT_WIDTH,
-                thr: DEFAULT_THRESHOLD,
-                id: DEFAULT_ID,
-                sn: DEFAULT_SN,
-                ct: ct
+            Log.Debug("ScanLengthAsync Begin");
+            //var peaks = await AutoPeakMultiAsync(
+            //    start: DEFAULT_START,
+            //    end: DEFAULT_END,
+            //    count: "2",
+            //    algo: DEFAULT_ALGO,
+            //    width: DEFAULT_WIDTH,
+            //    thr: DEFAULT_THRESHOLD,
+            //    id: DEFAULT_ID,
+            //    sn: DEFAULT_SN,
+            //    ct: ct
+            //);
+
+            //if (peaks.Count == 0)
+            //    return -1d;
+
+            var scan = await ScanAsync(
+              windowLength_m: 30.0,
+              nExpected: 0.002,
+              ct: ct
             );
 
-            if (peaks.Count == 0)
-                return -1d;
+            if (scan != null)
+            {
+                Log.Debug(JsonSerializer.Serialize(scan));
+                // 兜底2：仍无峰，取最大值位置
+                if (scan.Y.Length > 0)
+                {
+                    int maxIdx = 0;
+                    double maxVal = scan.Y[0];
+                    for (int i = 1; i < scan.Y.Length; i++)
+                    {
+                        if (scan.Y[i] > maxVal)
+                        {
+                            maxVal = scan.Y[i];
+                            maxIdx = i;
+                        }
+                    }
+                    double pos_m = maxIdx * scan.Resolution;
+                    Log.Debug($" Scan Max Position {pos_m} m ");
+                    return pos_m;
+                }
+            }
 
-            Log.Debug($" {nameof(ScanLengthAsync)} AutoPeakMultiAsync End");
-            // 代表产品端点的峰：采用距离最大（如需按 dB 选择，可改成幅值最大）
-            var endpoint = peaks.OrderByDescending(x => x.Position_m).First();
-            var productLen = endpoint.Position_m - zeroLength_m;
-            return productLen;
+            Log.Debug($" Complete {nameof(AutoPeakMultiAsync)} ");
+            return -1d;
         }
 
         // 峰值结果
@@ -244,9 +270,7 @@ namespace OFDRCentralControlServer.Devices
                 throw new InvalidOperationException("Not connected.");
 
             // 1) 发送 SCAN 指令（ASCII + CRLF）
-            var cmdBytes = Encoding.ASCII.GetBytes("SCAN\r\n");
-            await _stream.WriteAsync(cmdBytes, ct);
-            await _stream.FlushAsync(ct);
+            await SendLineAsync("SCAN", ct, TimeSpan.FromSeconds(10));
             Log.Debug("SCAN sent");
 
             // 2) 读取首行分辨率（文本行，CRLF 结束）
