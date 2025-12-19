@@ -27,33 +27,35 @@ namespace OFDRCentralControlServer.Devices
             _baud = baud;
             _switchIndex = switchIndex;
             _inputChannel = inputChannel;
+
+            _port = new SerialPort(_portName, _baud, Parity.None, 8, StopBits.One)
+            {
+                Handshake = Handshake.None,
+                ReadTimeout = 1000,
+                WriteTimeout = 1000,
+                // === 关键改造 1：ASCII 编码 + 终止符 CRLF ===
+                Encoding = Encoding.ASCII,   // 设备要求 8-bit ASCII
+                NewLine = "\r\n",            // 设备终止符 <CR><LF>
+
+            };
         }
 
-        public Task ConnectAsync()
+        public Task<bool> ConnectAsync()
         {
             try
             {
-                _port = new SerialPort(_portName, _baud, Parity.None, 8, StopBits.One)
-                {
-                    Handshake = Handshake.None,
-                    ReadTimeout = 1000,
-                    WriteTimeout = 1000,
-                    // === 关键改造 1：ASCII 编码 + 终止符 CRLF ===
-                    Encoding = Encoding.ASCII,   // 设备要求 8-bit ASCII
-                    NewLine = "\r\n",            // 设备终止符 <CR><LF>
-
-                };
-
-                _port.Open();
+                if (!IsConnected)
+                    _port!.Open();
                 Log.Information("Switch opened {Port}@{Baud}", _portName, _baud);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Switch open failed {Port}@{Baud}", _portName, _baud);
+                return Task.FromResult(false);
             }
 
             IsConnected = true;
-            return Task.CompletedTask;
+            return Task.FromResult(true);
         }
 
         public Task DisconnectAsync()

@@ -51,7 +51,20 @@ try
         Log.Information("Started in REAL mode");
         var adapter = new FlaInstrumentAdapter(cfg.FlaHost, cfg.FlaPort);
         var sw = new OpticalSwitchController(cfg.SwitchCom, cfg.SwitchBaud, cfg.SwitchIndex, cfg.SwitchInput);
-        var worker = new MeasurementWorker(queue, server, adapter, sw, cfg.KeepFlaConnection);
+
+        //针对两个设备建立连接做一次诊断 如果没有连接 则报错退出
+        if(!await adapter.ConnectAsync(CancellationToken.None))
+        {
+            Log.Error("Failed to connect to FLA instrument. Exiting.");
+            return;
+        }
+        if (!await sw.ConnectAsync())
+        {
+            Log.Error("Failed to connect to OSW instrument. Exiting.");
+            return;
+        }
+
+        var worker = new MeasurementWorker(queue, server, adapter, sw);
         serverTask = server.StartAsync(cts.Token);
         workerTask = worker.StartAsync(cts.Token);
     }

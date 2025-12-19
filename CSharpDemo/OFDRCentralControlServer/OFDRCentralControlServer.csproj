@@ -27,7 +27,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Update="FlaConfig.json">
+		<None Update="ServerConfig.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>

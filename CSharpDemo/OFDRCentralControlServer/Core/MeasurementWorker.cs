@@ -8,12 +8,16 @@ namespace OFDRCentralControlServer.Core
     public class MeasurementWorker
     {
         private readonly Channel<MeasureTask> _queue;
+
         private readonly TcpServer _server;
+
         private readonly FlaInstrumentAdapter _fla;
+
         private readonly OpticalSwitchController _switch;
+
         private readonly SemaphoreSlim _deviceLock = new(1, 1);
+
         private static readonly Random _jitter = new Random();
-        private readonly bool _keepFlaConnection;
 
         // 切开关最多重试 3 次
         private const int RETRY_SWITCH_MAX = 3;
@@ -37,40 +41,17 @@ namespace OFDRCentralControlServer.Core
 
         private readonly ILogger Log = Serilog.Log.ForContext<MeasurementWorker>();
 
-        public MeasurementWorker(Channel<MeasureTask> queue, TcpServer server, FlaInstrumentAdapter adapter, OpticalSwitchController sw, bool keepFlaConnection = false)
+        public MeasurementWorker(Channel<MeasureTask> queue, TcpServer server, FlaInstrumentAdapter adapter, OpticalSwitchController sw)
         {
             _queue = queue;
             _server = server;
             _fla = adapter;
             _switch = sw;
-            _keepFlaConnection = keepFlaConnection;
         }
 
         public async Task StartAsync(CancellationToken ct)
         {
             Log.Information("Worker started");
-
-            // 如果配置为长连接，尝试在启动时建立一次连接（若失败会在任务开始时重试）
-            if (_keepFlaConnection)
-            {
-                try
-                {
-                    await RetryAsync(
-                        async () => await _fla.ConnectAsync(ct),
-                        "connect",
-                        RETRY_CONNECT_MAX,
-                        BASE_DELAY_CONNECT,
-                        ct,
-                        Log,
-                        failDetail: "initial FLA connect"
-                    );
-                    Log.Information("FLA long-connection established at worker start");
-                }
-                catch (Exception ex)
-                {
-                    Log.Warning(ex, "Initial long-connection to FLA failed; tasks will retry on demand");
-                }
-            }
 
             while (!ct.IsCancellationRequested)
             {
@@ -87,6 +68,15 @@ namespace OFDRCentralControlServer.Core
                     RunningTaskTracker.Instance.MarkRunning(task.TaskId);
                     await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "running"), ct);
 
+                    await RetryAsync(
+                        async () => await _switch.ConnectAsync(),
+                        "switch",
+                        RETRY_SWITCH_MAX,
+                        BASE_DELAY_SWITCH,
+                        ct,
+                        Log
+                    );
+
                     // 1) 切光开关 —— 带重试
                     await RetryAsync(
                         async () => await _switch.SwitchToOutputAsync(task.ClientId, ct),
@@ -100,32 +90,16 @@ namespace OFDRCentralControlServer.Core
                     Log.Information("Switch set to {Channel} for task {TaskId}", task.ClientId, task.TaskId);
 
                     // 2) 连接 FLA —— 带重试（仅短链接或长链接首次连接失败时）
-                    if (!_keepFlaConnection)
-                    {
-                        await RetryAsync(
-                            async () => await _fla.ConnectAsync(ct),
-                            "connect",
-                            RETRY_CONNECT_MAX,
-                            BASE_DELAY_CONNECT,
-                            ct,
-                            Log,
-                            failDetail: "FLA tcp handshake"
-                        );
-                        Log.Information("FLA connected for task {TaskId}", task.TaskId);
-                    }
-                    else
-                    {
-                        // 如果长连接配置且尚未连接，尝试连接一次
-                        try
-                        {
-                            await _fla.ConnectAsync(ct);
-                        }
-                        catch
-                        {
-                            // ignore: RetryAsync below when performing ops will handle transient failures
-                        }
-                        Log.Debug("Using long connection for task {TaskId}", task.TaskId);
-                    }
+                    await RetryAsync(
+                        async () => await _fla.ConnectAsync(ct),
+                        "connect",
+                        RETRY_CONNECT_MAX,
+                        BASE_DELAY_CONNECT,
+                        ct,
+                        Log,
+                        failDetail: "FLA tcp handshake"
+                    );
+                    Log.Information("FLA connected for task {TaskId}", task.TaskId);
 
                     var result = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: null);
                     object data;
@@ -206,22 +180,13 @@ namespace OFDRCentralControlServer.Core
                 {
                     try
                     {
-                        if (!_keepFlaConnection)
-                        {
-                            await _fla.DisconnectAsync();
-                            Log.Debug("FLA disconnected for task {TaskId}", task.TaskId);
-                        }
+                        await _fla.DisconnectAsync();
+                        Log.Debug("FLA disconnected for task {TaskId}", task.TaskId);
                     }
                     catch { }
 
                     _deviceLock.Release();
                 }
-            }
-
-            // 如果使用长连接模式，Stop 时断开
-            if (_keepFlaConnection)
-            {
-                try { await _fla.DisconnectAsync(); } catch { }
             }
 
             Log.Information("Worker stopped");

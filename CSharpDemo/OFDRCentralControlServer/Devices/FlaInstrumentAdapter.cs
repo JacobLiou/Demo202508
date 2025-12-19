@@ -78,7 +78,7 @@ namespace OFDRCentralControlServer.Devices
             _port = port;
         }
 
-        public async Task ConnectAsync(CancellationToken ct)
+        public async Task<bool> ConnectAsync(CancellationToken ct)
         {
             _client = new TcpClient();
             await _client.ConnectAsync(_host, _port, ct);
@@ -87,10 +87,13 @@ namespace OFDRCentralControlServer.Devices
             // 握手：设备会发 "OCI" 表示连接成功（协议文档）
             var ok = await ReadUntilAsync("OCI", TimeSpan.FromSeconds(5), ct);
             Log.Information($"OCI Recv OK {ok}");
-            if (!ok) throw new Exception("Handshake failed: OCI not received");
+            if (!ok)
+                throw new Exception("Handshake failed: OCI not received");
+
+            return ok;
         }
 
-        public async Task DisconnectAsync()
+        public Task DisconnectAsync()
         {
             try
             {
@@ -103,6 +106,8 @@ namespace OFDRCentralControlServer.Devices
                 _client?.Close();
             }
             catch { }
+
+            return Task.CompletedTask;
         }
 
         /// <summary>

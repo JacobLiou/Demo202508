@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace OFDRCentralControlServer
 {
-    public class FlaConfig
+    public class ServerConfig
     {
         // real | mock
         public string RunMode { get; set; } = "real";
@@ -20,36 +20,33 @@ namespace OFDRCentralControlServer
         public int SwitchIndex { get; set; } = 1;
 
         public int SwitchInput { get; set; } = 1;
-
-        // 是否对 FLA 使用长连接（默认 false，短连接：每任务连接一次并在任务结束断开）
-        public bool KeepFlaConnection { get; set; } = true;
     }
 
     public static class ConfigLoader
     {
-        private const string FileName = "FlaConfig.json";
+        private const string FileName = "ServerConfig.json";
 
-        public static FlaConfig Load()
+        public static ServerConfig Load()
         {
             try
             {
                 if (!File.Exists(FileName))
                 {
-                    var def = new FlaConfig();
+                    var def = new ServerConfig();
                     Save(def);
                     return def;
                 }
                 var json = File.ReadAllText(FileName);
-                var cfg = JsonSerializer.Deserialize<FlaConfig>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
-                return cfg ?? new FlaConfig();
+                var cfg = JsonSerializer.Deserialize<ServerConfig>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                return cfg ?? new ServerConfig();
             }
             catch
             {
-                return new FlaConfig();
+                return new ServerConfig();
             }
         }
 
-        public static void Save(FlaConfig cfg)
+        public static void Save(ServerConfig cfg)
         {
             var json = JsonSerializer.Serialize(cfg, new JsonSerializerOptions { WriteIndented = true });
             File.WriteAllText(FileName, json);

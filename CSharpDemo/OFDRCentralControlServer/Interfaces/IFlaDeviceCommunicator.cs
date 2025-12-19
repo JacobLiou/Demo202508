@@ -4,7 +4,7 @@ namespace OFDRCentralControlServer.Interfaces
 {
     public interface IFlaDeviceCommunicator
     {
-        Task SetConfigAsync(FlaConfig config, CancellationToken ct = default);
+        Task SetConfigAsync(ServerConfig config, CancellationToken ct = default);
 
         Task SetResolutionAsync(string mode, CancellationToken ct = default);
 

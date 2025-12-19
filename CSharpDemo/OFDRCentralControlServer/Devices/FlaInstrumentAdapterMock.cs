@@ -49,7 +49,7 @@ namespace OFDRCentralControlServer.Devices
             throw new NotImplementedException();
         }
 
-        public Task SetConfigAsync(FlaConfig config, CancellationToken ct = default)
+        public Task SetConfigAsync(ServerConfig config, CancellationToken ct = default)
         {
             throw new NotImplementedException();
         }
