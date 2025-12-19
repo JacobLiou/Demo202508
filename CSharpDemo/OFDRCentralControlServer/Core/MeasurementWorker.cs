@@ -77,7 +77,7 @@ namespace OFDRCentralControlServer.Core
                         Log
                     );
 
-                    // 1) 切光开关 —— 带重试
+                    // 切光开关 —— 带重试
                     await RetryAsync(
                         async () => await _switch.SwitchToOutputAsync(task.ClientId, ct),
                         "switch",
@@ -88,18 +88,6 @@ namespace OFDRCentralControlServer.Core
                         failDetail: $"channel={task.ClientId}"
                     );
                     Log.Information("Switch set to {Channel} for task {TaskId}", task.ClientId, task.TaskId);
-
-                    // 2) 连接 FLA —— 带重试（仅短链接或长链接首次连接失败时）
-                    await RetryAsync(
-                        async () => await _fla.ConnectAsync(ct),
-                        "connect",
-                        RETRY_CONNECT_MAX,
-                        BASE_DELAY_CONNECT,
-                        ct,
-                        Log,
-                        failDetail: "FLA tcp handshake"
-                    );
-                    Log.Information("FLA connected for task {TaskId}", task.TaskId);
 
                     var result = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: null);
                     object data;
@@ -178,13 +166,6 @@ namespace OFDRCentralControlServer.Core
                 }
                 finally
                 {
-                    try
-                    {
-                        await _fla.DisconnectAsync();
-                        Log.Debug("FLA disconnected for task {TaskId}", task.TaskId);
-                    }
-                    catch { }
-
                     _deviceLock.Release();
                 }
             }

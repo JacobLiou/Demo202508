@@ -40,22 +40,22 @@ namespace OFDRCentralControlServer.Devices
             };
         }
 
-        public Task<bool> ConnectAsync()
+        public async Task<bool> ConnectAsync()
         {
             try
             {
                 if (!IsConnected)
                     _port!.Open();
                 Log.Information("Switch opened {Port}@{Baud}", _portName, _baud);
+                IsConnected = await GetEchoAsync(CancellationToken.None);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Switch open failed {Port}@{Baud}", _portName, _baud);
-                return Task.FromResult(false);
+                IsConnected = false;
             }
 
-            IsConnected = true;
-            return Task.FromResult(true);
+            return IsConnected;
         }
 
         public Task DisconnectAsync()
@@ -75,6 +75,14 @@ namespace OFDRCentralControlServer.Devices
             EnsureOkOrThrow(line);
             await ReadUntilPromptAsync(ct);
             Log.Debug("SWITCH prompt '>' received");
+
+            await Task.Delay(50);
+
+            var actualOutput = await GetActualOutputAsync(_switchIndex, ct);
+            if (actualOutput != outputChannel)
+            {
+                Log.Error("Switch to output {OutputChannel} failed, actual is {ActualOutput}", outputChannel, actualOutput);
+            }
         }
 
         public async Task<int> GetActualOutputAsync(int switchIndex, CancellationToken ct = default)

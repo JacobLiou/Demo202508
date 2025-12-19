@@ -1,4 +1,6 @@
 using Serilog;
+using System.Buffers;
+using System.Globalization;
 using System.Net.Sockets;
 using System.Text;
 
@@ -93,10 +95,12 @@ namespace OFDRCentralControlServer.Devices
             return ok;
         }
 
-        public Task DisconnectAsync()
+        public async Task DisconnectAsync()
         {
             try
             {
+                await SendLineAsync("QUIT");
+                await Task.Delay(50);
                 _stream?.Dispose();
             }
             catch { }
@@ -106,8 +110,6 @@ namespace OFDRCentralControlServer.Devices
                 _client?.Close();
             }
             catch { }
-
-            return Task.CompletedTask;
         }
 
         /// <summary>
@@ -119,6 +121,12 @@ namespace OFDRCentralControlServer.Devices
         public async Task<double> ZeroLengthAsync(CancellationToken ct)
         {
             // 测量范围重置（归零）：X_00000 + WR_00000，均需返回 SET OK
+            Log.Debug($" {nameof(ZeroLengthAsync)} SR_0 ");
+            await SetResolutionAsync("00000", ct);  // SR_0
+
+            Log.Debug($" {nameof(ZeroLengthAsync)} G_1 ");
+            await SetGainAsync("1", ct);  // G_1
+
             Log.Debug($" {nameof(ZeroLengthAsync)} X_00000 ");
             await SetCenterAsync("00000", ct);  // X_00000
 
@@ -127,33 +135,61 @@ namespace OFDRCentralControlServer.Devices
 
             // 自动寻峰（多个峰）：使用默认参数（Start/End/Algo/Width/Threshold/Id/Sn）
             Log.Debug($" {nameof(AutoPeakMultiAsync)} ");
-            var peaks = await AutoPeakMultiAsync(
-                start: DEFAULT_START,
-                end: DEFAULT_END,
-                count: "2",
-                algo: DEFAULT_ALGO,
-                width: DEFAULT_WIDTH,
-                thr: DEFAULT_THRESHOLD,
-                id: DEFAULT_ID,
-                sn: DEFAULT_SN,
+            //var peaks = await AutoPeakMultiAsync(
+            //    start: DEFAULT_START,
+            //    end: DEFAULT_END,
+            //    count: "2",
+            //    algo: DEFAULT_ALGO,
+            //    width: DEFAULT_WIDTH,
+            //    thr: DEFAULT_THRESHOLD,
+            //    id: DEFAULT_ID,
+            //    sn: DEFAULT_SN,
+            //    ct: ct
+            //);
+
+            //// 产线约定取第 3 峰作为归零线长
+            //if (peaks.Count >= 3)
+            //{
+            //    var third = peaks[2];
+            //    return third.Position_m;
+            //}
+
+            //// 兜底：不足 3 个峰，取距离最大
+            //if (peaks.Count > 0)
+            //{
+            //    var maxDist = peaks.OrderByDescending(x => x.Position_m).First();
+            //    return maxDist.Position_m;
+            //}
+
+            var scan = await ScanAsync(
+                windowLength_m: 30.0,
+                nExpected: 0.002,
                 ct: ct
             );
 
+            if (scan != null)
+            {
+                Log.Debug($" Scan Y Count {scan.Y.Length} ");
+                // 兜底2：仍无峰，取最大值位置
+                if (scan.Y.Length > 0)
+                {
+                    int maxIdx = 0;
+                    double maxVal = scan.Y[0];
+                    for (int i = 1; i < scan.Y.Length; i++)
+                    {
+                        if (scan.Y[i] > maxVal)
+                        {
+                            maxVal = scan.Y[i];
+                            maxIdx = i;
+                        }
+                    }
+                    double pos_m = maxIdx * scan.Resolution;
+                    Log.Debug($" Scan Max Position {pos_m} m ");
+                    return pos_m;
+                }
+            }
+
             Log.Debug($" Complete {nameof(AutoPeakMultiAsync)} ");
-            // 产线约定取第 3 峰作为归零线长
-            if (peaks.Count >= 3)
-            {
-                var third = peaks[2];
-                return third.Position_m;
-            }
-
-            // 兜底：不足 3 个峰，取距离最大
-            if (peaks.Count > 0)
-            {
-                var maxDist = peaks.OrderByDescending(x => x.Position_m).First();
-                return maxDist.Position_m;
-            }
-
             return -1d;
         }
 
@@ -197,6 +233,94 @@ namespace OFDRCentralControlServer.Devices
 
         // 峰值结果
         private record PeakPoint(double Position_m, double Db, double Id, string Sn);
+
+        // 发送 SCAN 并读取数据
+        public async Task<ScanResult> ScanAsync(
+            double windowLength_m,   // m（来自 WR 设置）
+            double nExpected,        // 期望分辨率 n（来自 SR 模式）
+            CancellationToken ct = default)
+        {
+            if (_stream is null)
+                throw new InvalidOperationException("Not connected.");
+
+            // 1) 发送 SCAN 指令（ASCII + CRLF）
+            var cmdBytes = Encoding.ASCII.GetBytes("SCAN\r\n");
+            await _stream.WriteAsync(cmdBytes, ct);
+            await _stream.FlushAsync(ct);
+            Log.Debug("SCAN sent");
+
+            // 2) 读取首行分辨率（文本行，CRLF 结束）
+            string firstLine = await ReadLineAsync(TimeSpan.FromSeconds(5), ct);
+            Log.Debug("SCAN resolution line: `{Line}`", firstLine);
+
+            double n = TryParseResolution(firstLine, fallback: nExpected);
+            if (Math.Abs(n - nExpected) > 1e-9)
+                Log.Warning("Resolution from device ({DeviceN} m) != expected ({ExpectedN} m). Using device value.",
+                    n, nExpected);
+
+            // 3) 计算理论数据字节
+            int NExpected = Math.Max(1, (int)Math.Ceiling(windowLength_m / n)); // 文档：向上取整
+            int expectedBytes = NExpected * 12;                                  // 每点 12 字节
+            Log.Debug("Expect points={N}, dataBytes={B}", NExpected, expectedBytes);
+
+            // 4) 读取数据区（尽量按理论字节）
+            var dataBuffer = new List<byte>(expectedBytes + 64);
+            await ReadAtLeastAsync(_stream, dataBuffer, expectedBytes, ct);
+
+            // 4.2) 继续读到 '!'（0x21）
+            bool terminatedByBang = false;
+            var buffer = new byte[1];
+
+            while (true)
+            {
+                var b = await _stream!.ReadAsync(buffer.AsMemory(0, 1), ct);
+                Log.Debug("Read extra byte: {B}", buffer[0]);
+                if (b < 0) break;          // 连接关闭（非预期）
+                if (b == (byte)'!')
+                {
+                    terminatedByBang = true;
+                    break;
+                }
+                // 某些实现可能有 CRLF、提示字符等尾随，直接跳过
+            }
+            int rawBytes = dataBuffer.Count;
+
+            // 自适应修正：若理论值与实际值不符，用实际字节数/12 作为点数
+            int actualPoints = rawBytes / 12;
+            if (actualPoints != NExpected)
+            {
+                Log.Warning("Data bytes mismatch: theory={ExpectedBytes}({NExpected}pts) vs actual={RawBytes}({ActualPts}pts). Will parse actual.",
+                    expectedBytes, NExpected, rawBytes, actualPoints);
+            }
+
+            // 5) 解析 12B -> double（ASCII 固定宽度）
+            var y = new double[actualPoints];
+            for (int i = 0; i < actualPoints; i++)
+            {
+                int offset = i * 12;
+                y[i] = ParseChunkAsAsciiDouble(dataBuffer, offset, 12);
+            }
+
+            return new ScanResult(
+                Resolution: n,
+                WindowLength: windowLength_m,
+                PointCount: actualPoints,
+                Y: y,
+                RawBytes: rawBytes,
+                TerminatedByBang: terminatedByBang
+            );
+        }
+
+
+        public record ScanResult(
+            double Resolution,          // 解析到的空间分辨率 n（首行或兜底）
+            double WindowLength,        // m（调用方传入，来自 WR）
+            int PointCount,             // 实际解析的点数
+            double[] Y,                 // 纵坐标数据
+            int RawBytes,               // 实际读取的有效数据区字节数（不含 '!'）
+            bool TerminatedByBang       // 是否读到 '!' 结束符
+        );
+
 
         // ------------------ 自动寻峰（多峰） ------------------
         private async Task<List<PeakPoint>> AutoPeakMultiAsync(
@@ -290,6 +414,19 @@ namespace OFDRCentralControlServer.Devices
             }
         }
 
+        private async Task SendLineAsync(string line)
+        {
+            var buf = Encoding.ASCII.GetBytes(line + "\n");
+            try
+            {
+                await _stream!.WriteAsync(buf, 0, buf.Length);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"SendLineAsync Exception: {ex.Message}");
+            }
+        }
+
         private async Task<string> ReadLineAsync(TimeSpan timeout, CancellationToken ct)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
@@ -339,6 +476,51 @@ namespace OFDRCentralControlServer.Devices
             return false;
         }
 
+
+        #region 工具方法
+
+
+        private static async Task ReadAtLeastAsync(NetworkStream stream, List<byte> target, int size, CancellationToken ct)
+        {
+            int remaining = size;
+            byte[] buf = ArrayPool<byte>.Shared.Rent(Math.Min(4096, size));
+            try
+            {
+                while (remaining > 0)
+                {
+                    int n = await stream.ReadAsync(buf.AsMemory(0, Math.Min(buf.Length, remaining)), ct);
+                    if (n <= 0) throw new IOException("Stream ended before expected bytes were read.");
+                    target.AddRange(buf.AsSpan(0, n).ToArray());
+                    remaining -= n;
+                }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(buf);
+            }
+        }
+
+        // 解析首行分辨率：优先数值（可带单位 m），否则回退
+        private static double TryParseResolution(string line, double fallback)
+        {
+            string s = line.Replace("m", "", StringComparison.OrdinalIgnoreCase).Trim();
+            if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double n) && n > 0)
+                return n;
+            return fallback;
+        }
+
+        // 将固定宽度 ASCII 12B 解析为 double
+        private static double ParseChunkAsAsciiDouble(List<byte> buf, int offset, int len)
+        {
+            var slice = buf.Skip(offset).Take(len).ToArray();
+            string s = Encoding.ASCII.GetString(slice).Trim();
+            if (double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out double v))
+                return v;
+
+            // 如果你的设备的 12B 是二进制而非 ASCII，请把这里替换为二进制解析。
+            throw new FormatException($"无法解析 12B 数据块为数值：\"{s}\"");
+        }
+
         private static string Fmt5(string raw)
         {
             var s = raw.Trim();
@@ -380,5 +562,7 @@ namespace OFDRCentralControlServer.Devices
 
             return list;
         }
+
+        #endregion
     }
 }
