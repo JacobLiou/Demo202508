@@ -1,23 +1,29 @@
+using Microsoft.Extensions.Configuration;
+using OFDRCentralControlServer;
 using OFDRCentralControlServer.Core;
 using OFDRCentralControlServer.Devices;
-using OFDRCentralControlServer;
 using OFDRCentralControlServer.Models;
 using Serilog;
-using Serilog.Events;
 using System.Threading.Channels;
 
+// 确保日志目录存在
 Directory.CreateDirectory(Path.Combine(AppContext.BaseDirectory, "logs"));
 
+// 读取环境变量：Development / Production 等
+var env = Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT")
+          ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+          ?? "Production";
+
+// 构建配置（支持多环境）
+var configuration = new ConfigurationBuilder()
+    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+    .AddEnvironmentVariables()
+    .Build();
+
+// 从配置读取 Serilog
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
-    .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] ({ThreadId}) {Message:lj}{NewLine}{Exception}")
-    .WriteTo.File(Path.Combine("logs", "server-.log"),
-                  outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] ({ThreadId}) {Message:lj}{NewLine}{Exception}",
-                  rollingInterval: RollingInterval.Day,
-                  retainedFileCountLimit: 14,
-                  shared: true)
+    .ReadFrom.Configuration(configuration)
+    .Enrich.WithThreadId()
     .CreateLogger();
 
 try
@@ -40,6 +46,7 @@ try
     if (cfg.RunMode.Equals("mock", StringComparison.OrdinalIgnoreCase))
     {
         Log.Information("Started in MOCK mode");
+        Log.Debug("Try Log Level");
         var adapter = new FlaInstrumentAdapterMock();
         var sw = new OpticalSwitchControllerMock();
         var worker = new MeasurementWorkerMock(queue, server, adapter, sw);
@@ -53,7 +60,7 @@ try
         var sw = new OpticalSwitchController(cfg.SwitchCom, cfg.SwitchBaud, cfg.SwitchIndex, cfg.SwitchInput);
 
         //针对两个设备建立连接做一次诊断 如果没有连接 则报错退出
-        if(!await adapter.ConnectAsync(CancellationToken.None))
+        if (!await adapter.ConnectAsync(CancellationToken.None))
         {
             Log.Error("Failed to connect to FLA instrument. Exiting.");
             return;
