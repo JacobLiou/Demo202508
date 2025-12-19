@@ -9,6 +9,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlaQueueServer", "FlaQueueS
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlaClientMock", "FlaClientMock\FlaClientMock.csproj", "{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OFDRCentralControlServer", "..\OFDRCentralControlServer\OFDRCentralControlServer.csproj", "{4D003D29-4DF7-4EC9-A706-6C5903A0AF4F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -27,6 +29,10 @@ Global
 		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1B670F44-4A4A-5BE3-A9EA-ADC17DEEEFB9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4D003D29-4DF7-4EC9-A706-6C5903A0AF4F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4D003D29-4DF7-4EC9-A706-6C5903A0AF4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4D003D29-4DF7-4EC9-A706-6C5903A0AF4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4D003D29-4DF7-4EC9-A706-6C5903A0AF4F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
