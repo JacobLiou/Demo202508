@@ -2,53 +2,15 @@ using Serilog;
 using System.Buffers;
 using System.Globalization;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.Json;
 
 namespace OFDRCentralControlServer.Devices
 {
     /// <summary>
     /// Fla设备驱动控制器 (TCP 协议)
-    /// 归零：获取基准长度（通常是光纤的“原始长度”或参考点）。
-    /// 目标：找到光纤链路的“原始长度”，作为后续扫描计算的参考。
-    ////流程概述
-    ////设置测量参数
-    ////分辨率（SR_0 / SR_1 / SR_2）
-    ////增益（G_1 / G_2）
-    ////通道（如果有）
-
-    ////执行一次完整测量（SCAN）
-    ////发送 SCAN 指令
-    ////接收数据（直到结束符 !）
-
-    ////自动寻峰（或手动分析）
-    ////使用 SCAN_AAA_BBB_...自动寻峰指令，或本地算法分析 SCAN 数据
-    ////找到反射峰列表
-
-    ////确定初始长度
-    ////按产线规则取第 3 个峰（或最远峰）作为“归零长度”
-    ////保存该长度用于后续扫描计算
-
-    //目标：根据归零结果和当前测量，计算光纤长度。
-    //流程概述
-    //设置窗口和游标
-
-    //根据归零长度，设置 X_ 和 WR_，确保窗口覆盖目标区域
-    //例如：X_006.0，WR_01.00
-
-    //执行测量（SCAN）
-
-    //发送 SCAN 指令
-    //获取数据
-    //长度计算
-
-    //如果使用自动寻峰：发送 SCAN_AAA_BBB_...指令，直接返回峰位置
-    //如果使用原始数据：根据起点位置 + 数据索引 × 分辨率，计算目标点距离
-
-    //输出最终长度
-
-    //与归零长度结合，得到实际光纤长度或差值
-    //扫描：在归零基础上，测量并计算目标长度（可能是跳线、段长、变化量）。
+    /// 归零：获取基准长度（通常是光纤的“原始长度”或参考点）。  一次自动寻峰，取第3峰位置作为归零长度。
+    /// 目标：找到光纤链路的“原始长度”，作为后续扫描计算的参考。  再一次自动寻峰，取最大峰位置作为端点位置。
     /// </summary>
     public class FlaInstrumentAdapter
     {
@@ -134,60 +96,32 @@ namespace OFDRCentralControlServer.Devices
             //Log.Debug($" {nameof(ZeroLengthAsync)} WR_00000 ");
             //await SetWindowAsync("00000", ct);  // WR_00000
 
-            //// 自动寻峰（多个峰）：使用默认参数（Start/End/Algo/Width/Threshold/Id/Sn）
-            //Log.Debug($" {nameof(AutoPeakMultiAsync)} ");
-            ////var peaks = await AutoPeakMultiAsync(
-            ////    start: DEFAULT_START,
-            ////    end: DEFAULT_END,
-            ////    count: "2",
-            ////    algo: DEFAULT_ALGO,
-            ////    width: DEFAULT_WIDTH,
-            ////    thr: DEFAULT_THRESHOLD,
-            ////    id: DEFAULT_ID,
-            ////    sn: DEFAULT_SN,
-            ////    ct: ct
-            ////);
-
-            ////// 产线约定取第 3 峰作为归零线长
-            ////if (peaks.Count >= 3)
-            ////{
-            ////    var third = peaks[2];
-            ////    return third.Position_m;
-            ////}
-
-            ////// 兜底：不足 3 个峰，取距离最大
-            ////if (peaks.Count > 0)
-            ////{
-            ////    var maxDist = peaks.OrderByDescending(x => x.Position_m).First();
-            ////    return maxDist.Position_m;
-            ////}
-
-            var scan = await ScanAsync(
-                windowLength_m: 30.0,
-                nExpected: 0.002,
+            // 自动寻峰（多个峰）：使用默认参数（Start/End/Algo/Width/Threshold/Id/Sn）
+            Log.Debug($" {nameof(AutoPeakMultiAsync)} ");
+            var peaks = await AutoPeakMultiAsync(
+                start: DEFAULT_START,
+                end: DEFAULT_END,
+                count: "2",
+                algo: DEFAULT_ALGO,
+                width: DEFAULT_WIDTH,
+                thr: DEFAULT_THRESHOLD,
+                id: DEFAULT_ID,
+                sn: DEFAULT_SN,
                 ct: ct
             );
 
-            if (scan != null)
+            // 产线约定取第 3 峰作为归零线长
+            if (peaks.Count >= 3)
             {
-                Log.Debug(JsonSerializer.Serialize(scan));
-                // 兜底2：仍无峰，取最大值位置
-                if (scan.Y.Length > 0)
-                {
-                    int maxIdx = 0;
-                    double maxVal = scan.Y[0];
-                    for (int i = 1; i < scan.Y.Length; i++)
-                    {
-                        if (scan.Y[i] > maxVal)
-                        {
-                            maxVal = scan.Y[i];
-                            maxIdx = i;
-                        }
-                    }
-                    double pos_m = maxIdx * scan.Resolution;
-                    Log.Debug($" Scan Max Position {pos_m} m ");
-                    return pos_m;
-                }
+                var third = peaks[2];
+                return third.Position_m;
+            }
+
+            // 兜底：不足 3 个峰，取距离最大
+            if (peaks.Count > 0)
+            {
+                var maxDist = peaks.OrderByDescending(x => x.Position_m).First();
+                return maxDist.Position_m;
             }
 
             Log.Debug($" Complete {nameof(AutoPeakMultiAsync)} ");
@@ -210,51 +144,26 @@ namespace OFDRCentralControlServer.Devices
         )
         {
             Log.Debug("ScanLengthAsync Begin");
-            //var peaks = await AutoPeakMultiAsync(
-            //    start: DEFAULT_START,
-            //    end: DEFAULT_END,
-            //    count: "2",
-            //    algo: DEFAULT_ALGO,
-            //    width: DEFAULT_WIDTH,
-            //    thr: DEFAULT_THRESHOLD,
-            //    id: DEFAULT_ID,
-            //    sn: DEFAULT_SN,
-            //    ct: ct
-            //);
-
-            //if (peaks.Count == 0)
-            //    return -1d;
-
-            var scan = await ScanAsync(
-              windowLength_m: 30.0,
-              nExpected: 0.002,
-              ct: ct
+            var peaks = await AutoPeakMultiAsync(
+                start: DEFAULT_START,
+                end: DEFAULT_END,
+                count: "2",
+                algo: DEFAULT_ALGO,
+                width: DEFAULT_WIDTH,
+                thr: DEFAULT_THRESHOLD,
+                id: DEFAULT_ID,
+                sn: DEFAULT_SN,
+                ct: ct
             );
 
-            if (scan != null)
-            {
-                Log.Debug(JsonSerializer.Serialize(scan));
-                // 兜底2：仍无峰，取最大值位置
-                if (scan.Y.Length > 0)
-                {
-                    int maxIdx = 0;
-                    double maxVal = scan.Y[0];
-                    for (int i = 1; i < scan.Y.Length; i++)
-                    {
-                        if (scan.Y[i] > maxVal)
-                        {
-                            maxVal = scan.Y[i];
-                            maxIdx = i;
-                        }
-                    }
-                    double pos_m = maxIdx * scan.Resolution;
-                    Log.Debug($" Scan Max Position {pos_m} m ");
-                    return pos_m;
-                }
-            }
+            if (peaks.Count == 0)
+                return -1d;
 
-            Log.Debug($" Complete {nameof(AutoPeakMultiAsync)} ");
-            return -1d;
+            Log.Debug($" {nameof(ScanLengthAsync)} AutoPeakMultiAsync End");
+            // 代表产品端点的峰：采用距离最大（如需按 dB 选择，可改成幅值最大）
+            var endpoint = peaks.OrderByDescending(x => x.Position_m).First();
+            var productLen = endpoint.Position_m - zeroLength_m;
+            return productLen;
         }
 
         // 峰值结果
@@ -274,7 +183,7 @@ namespace OFDRCentralControlServer.Devices
             Log.Debug("SCAN sent");
 
             // 2) 读取首行分辨率（文本行，CRLF 结束）
-            string firstLine = await ReadLineAsync(TimeSpan.FromSeconds(5), ct);
+            string firstLine = await ReadFrameAsync(TimeSpan.FromSeconds(20), ct);
             Log.Debug("SCAN resolution line: `{Line}`", firstLine);
 
             double n = TryParseResolution(firstLine, fallback: nExpected);
@@ -335,7 +244,6 @@ namespace OFDRCentralControlServer.Devices
             );
         }
 
-
         public record ScanResult(
             double Resolution,          // 解析到的空间分辨率 n（首行或兜底）
             double WindowLength,        // m（调用方传入，来自 WR）
@@ -344,7 +252,6 @@ namespace OFDRCentralControlServer.Devices
             int RawBytes,               // 实际读取的有效数据区字节数（不含 '!'）
             bool TerminatedByBang       // 是否读到 '!' 结束符
         );
-
 
         // ------------------ 自动寻峰（多峰） ------------------
         private async Task<List<PeakPoint>> AutoPeakMultiAsync(
@@ -359,19 +266,19 @@ namespace OFDRCentralControlServer.Devices
             var points = new List<PeakPoint>();
             for (int i = 0; i < 256; i++) // 读取所有 OP_ 行
             {
-                var line = await ReadLineAsync(TimeSpan.FromSeconds(5), ct);
-                Log.Debug($"Recv: {line}");
+                var lines = await ReadAllLinesAsync(TimeSpan.FromSeconds(20), ct);
+                Log.Debug($"Recv: {lines}");
 
-                if (line is null) break;
+                if (lines is null) break;
 
-                if (line.Contains("INPUT_ERROR", StringComparison.OrdinalIgnoreCase))
+                if (lines.Contains("INPUT_ERROR", StringComparison.OrdinalIgnoreCase))
                     throw new Exception("INPUT_ERROR from device");
 
-                if (!line.StartsWith("OP_", StringComparison.OrdinalIgnoreCase))
+                if (!lines.StartsWith("OP_", StringComparison.OrdinalIgnoreCase))
                     break;
 
-                var segs = line.Split('_', StringSplitOptions.RemoveEmptyEntries);
-                if (segs.Length < 6) throw new Exception($"Unexpected response: {line}");
+                var segs = lines.Split('_', StringSplitOptions.RemoveEmptyEntries);
+                if (segs.Length < 6) throw new Exception($"Unexpected response: {lines}");
 
                 double pos = double.Parse(segs[1]);     // m
                 double db = double.Parse(segs[2]);     // dB（负值）
@@ -451,7 +358,130 @@ namespace OFDRCentralControlServer.Devices
             }
         }
 
-        private async Task<string> ReadLineAsync(TimeSpan timeout, CancellationToken ct)
+        private async Task<string> ReadFrameAsync(
+            TimeSpan timeout,
+            CancellationToken ct,
+            string startMarker = "OP",
+            string endMarker = "PO",
+            Encoding? encoding = null,
+            int maxFrameBytes = 64 * 1024 // 最大帧长度防御性限制
+        )
+        {
+            if (_stream is null) throw new InvalidOperationException("_stream is null.");
+
+            encoding ??= Encoding.ASCII;
+
+            // 将标记转换为字节序列（避免逐字符 cast）
+            byte[] startBytes = encoding.GetBytes(startMarker);
+            byte[] endBytes = encoding.GetBytes(endMarker);
+
+            // 读块缓冲区（可根据吞吐调整大小）
+            byte[] readBuffer = ArrayPool<byte>.Shared.Rent(2048);
+            var acc = new List<byte>(4096); // 累计原始字节
+            int startPos = -1; // startMarker 之后的载荷开始位置（字节级）
+            int searchPos = 0;  // 下一次查找起点，避免每次从头扫描
+
+            // 统一的截止时间（deadline），防止循环超时不精确
+            var deadline = DateTime.UtcNow + timeout;
+
+            try
+            {
+                while (true)
+                {
+                    // 计算剩余超时；若已到期，抛超时
+                    var remaining = deadline - DateTime.UtcNow;
+                    if (remaining <= TimeSpan.Zero)
+                        throw new TimeoutException("ReadFrameAsync timed out while waiting for device frame.");
+
+                    // 不给 ReadAsync 传取消（有些流不响应），用 WhenAny 自己做超时
+                    var readTask = _stream!.ReadAsync(readBuffer.AsMemory(0, readBuffer.Length)).AsTask();
+                    var winTask = await Task.WhenAny(readTask, Task.Delay(remaining, ct)).ConfigureAwait(false);
+
+                    if (winTask != readTask)
+                    {
+                        // Delay/取消赢了：要么外部取消，要么超时
+                        ct.ThrowIfCancellationRequested(); // 外部取消优先
+                        throw new TimeoutException("ReadFrameAsync timed out while waiting for device frame.");
+                    }
+
+                    int n = await readTask.ConfigureAwait(false);
+                    if (n == 0)
+                    {
+                        // EOF：连接关闭
+                        if (startPos >= 0)
+                        {
+                            // 已经看到 OP 但未完整结束，返回目前载荷（也可选择抛异常）
+                            var payload = acc.GetRange(startPos, acc.Count - startPos);
+                            return encoding.GetString(CollectionsMarshal.AsSpan(payload)).TrimEnd('\r', '\n');
+                        }
+                        throw new InvalidOperationException("Connection closed before a complete frame was received.");
+                    }
+
+                    // 附加到累积缓冲
+                    if (acc.Count + n > maxFrameBytes)
+                        throw new InvalidOperationException($"Frame exceeds max length ({maxFrameBytes} bytes).");
+
+                    acc.AddRange(readBuffer.AsSpan(0, n).ToArray());
+
+                    // 1) 若还没找到开始标记，先在 [searchPos..acc.Count) 查找 startMarker
+                    if (startPos < 0)
+                    {
+                        int idxStart = IndexOf(acc, startBytes, searchPos);
+                        if (idxStart >= 0)
+                        {
+                            startPos = idxStart + startBytes.Length;
+                            searchPos = startPos; // 之后从载荷起点继续找 endMarker
+                        }
+                        else
+                        {
+                            // 为避免跨块错过匹配，保留最多 (markerLen-1) 的回退空间
+                            searchPos = Math.Max(acc.Count - (startBytes.Length - 1), 0);
+                            continue; // 继续读下一块
+                        }
+                    }
+
+                    // 2) 找到开始后，在 [searchPos..acc.Count) 查找结束标记
+                    int idxEnd = IndexOf(acc, endBytes, searchPos);
+                    if (idxEnd >= 0)
+                    {
+                        // [startPos .. idxEnd) 是完整负载，不含 endMarker
+                        int payloadLen = idxEnd - startPos;
+                        ReadOnlySpan<byte> payloadSpan = CollectionsMarshal.AsSpan(acc).Slice(startPos, payloadLen);
+                        string frame = encoding.GetString(payloadSpan).TrimEnd('\r', '\n');
+
+                        return frame;
+                    }
+                    else
+                    {
+                        // 更新搜索起点，保留跨块匹配所需的回退长度
+                        searchPos = Math.Max(acc.Count - (endBytes.Length - 1), startPos);
+                    }
+                }
+            }
+            finally
+            {
+                ArrayPool<byte>.Shared.Return(readBuffer);
+            }
+
+            // 局部函数：在 List<byte> 中查找子序列（朴素算法，已足够）
+            static int IndexOf(List<byte> source, byte[] pattern, int from)
+            {
+                if (pattern.Length == 0) return from;
+                int last = source.Count - pattern.Length;
+                for (int i = from; i <= last; i++)
+                {
+                    int j = 0;
+                    for (; j < pattern.Length; j++)
+                        if (source[i + j] != pattern[j])
+                            break;
+                    if (j == pattern.Length)
+                        return i;
+                }
+                return -1;
+            }
+        }
+
+        private async Task<string> ReadAllLinesAsync(TimeSpan timeout, CancellationToken ct)
         {
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(timeout);
@@ -466,7 +496,6 @@ namespace OFDRCentralControlServer.Devices
                     var n = await _stream!.ReadAsync(buffer.AsMemory(0, 1), cts.Token);
                     if (n == 0) break; // 连接关闭
                     var ch = (char)buffer[0];
-                    Log.Debug(ch.ToString());
                     if (ch == '\n') break;
                     sb.Append(ch);
                 }
@@ -500,9 +529,7 @@ namespace OFDRCentralControlServer.Devices
             return false;
         }
 
-
         #region 工具方法
-
 
         private static async Task ReadAtLeastAsync(NetworkStream stream, List<byte> target, int size, CancellationToken ct)
         {
@@ -587,6 +614,6 @@ namespace OFDRCentralControlServer.Devices
             return list;
         }
 
-        #endregion
+        #endregion 工具方法
     }
 }
