@@ -112,8 +112,8 @@ namespace OFDRCentralControlServer.Core
                             {
                                 task.ClientId,
                                 mode = task.Mode,
-                                scan_length = res.Scan_Len,
-                                scan_Db = res.Scan_Db
+                                length_m = res.Scan_Len,
+                                peak_db = res.Scan_Db
                             };
                             result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                         }
@@ -139,8 +139,8 @@ namespace OFDRCentralControlServer.Core
                             {
                                 task.ClientId,
                                 mode = task.Mode,
-                                zero_length = zero.Zero_Len,
-                                zero_db = zero.Zero_Db
+                                length_m = zero.Zero_Len,
+                                peak_db = zero.Zero_Db
                             };
                             result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                         }
