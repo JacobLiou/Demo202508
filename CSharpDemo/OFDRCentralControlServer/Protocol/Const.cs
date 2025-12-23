@@ -1,6 +1,6 @@
 ﻿namespace OFDRCentralControlServer.Protocol
 {
-    internal class Const
+    public static class Const
     {
         // ------------------ 固化的默认参数（最佳参数） ------------------
         public const string DEFAULT_START = "0.0";
@@ -13,7 +13,7 @@
 
         public const string DEFAULT_WIDTH = "0.5";   // m
 
-        public const string DEFAULT_THRESHOLD = "60";    // => -60dB
+        public const string DEFAULT_THRESHOLD = "-80";    // => -80dB
 
         public const string DEFAULT_ID = "12";
 
