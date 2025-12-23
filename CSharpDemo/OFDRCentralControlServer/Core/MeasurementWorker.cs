@@ -1,6 +1,7 @@
 ﻿using OFDRCentralControlServer.Devices;
 using OFDRCentralControlServer.Models;
 using Serilog;
+using System.Text.Json;
 using System.Threading.Channels;
 
 namespace OFDRCentralControlServer.Core
@@ -117,6 +118,7 @@ namespace OFDRCentralControlServer.Core
                             result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                         }
 
+                        Log.Debug(JsonSerializer.Serialize(result));
                         Log.Information("FLA scan done for task {TaskId}: scan_length={Res}", task.TaskId, res);
                     }
                     else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
@@ -143,6 +145,7 @@ namespace OFDRCentralControlServer.Core
                             result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                         }
 
+                        Log.Debug(JsonSerializer.Serialize(result));
                         Log.Information("FLA zero done for task {TaskId}", task.TaskId);
                     }
                     else
@@ -160,6 +163,7 @@ namespace OFDRCentralControlServer.Core
                 {
                     // 最终失败返回（status = complete, success=false）
                     var failResult = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: ex.Message);
+                    Log.Error(JsonSerializer.Serialize(failResult));
                     await _server.SendResultAsync(task, failResult, ct);
                     HourlyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
                     // 标记完成（即使失败也不在 running）
