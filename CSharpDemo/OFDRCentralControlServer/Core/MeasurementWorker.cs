@@ -119,7 +119,7 @@ namespace OFDRCentralControlServer.Core
                         }
 
                         Log.Debug(JsonSerializer.Serialize(result));
-                        Log.Information("FLA scan done for task {TaskId}: scan_length={Res}", task.TaskId, res);
+                        Log.Information("FLA scan done for task {TaskId}: scan_data={Res}", task.TaskId, res);
                     }
                     else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
                     {
@@ -146,7 +146,7 @@ namespace OFDRCentralControlServer.Core
                         }
 
                         Log.Debug(JsonSerializer.Serialize(result));
-                        Log.Information("FLA zero done for task {TaskId}", task.TaskId);
+                        Log.Information("FLA zero done for task {TaskId}: zero_data={Zero}", task.TaskId, zero); ;
                     }
                     else
                     {
