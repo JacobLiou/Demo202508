@@ -45,8 +45,11 @@ namespace OFDRCentralControlServer.Devices
             try
             {
                 if (!IsConnected)
+                {
                     _port!.Open();
-                Log.Information("Switch opened {Port}@{Baud}", _portName, _baud);
+                    Log.Information("Switch opened {Port}@{Baud}", _portName, _baud);
+                }
+
                 IsConnected = true;//await SetLocalAsync();
             }
             catch (Exception ex)
