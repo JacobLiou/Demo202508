@@ -68,7 +68,7 @@ namespace OFDRCentralControlServer.Devices
         /// <param name="ct"></param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        public async Task<double> ZeroLengthAsync(CancellationToken ct)
+        public async Task<(double Zero_Len, double Zero_Db)> ZeroLengthAsync(CancellationToken ct)
         {
             // 自动寻峰（多个峰）：使用默认参数（Start/End/Algo/Width/Threshold/Id/Sn）
             Log.Debug($" {nameof(AutoPeakMultiAsync)} ");
@@ -86,12 +86,13 @@ namespace OFDRCentralControlServer.Devices
 
             Log.Debug($" Complete {nameof(AutoPeakMultiAsync)} ");
             // 产线约定取第 3 峰作为归零线长
-            if (peaks != null && peaks.PeakPositions != null && peaks.PeakPositions.Count != 0)
+            if (peaks != null && peaks.PeakPositions != null && peaks.PeakPositions.Count != 0
+                && peaks.PeakDbs != null && peaks.PeakDbs.Count != 0)
             {
-                return peaks.PeakPositions.Last();
+                return (peaks.PeakPositions.Last(), peaks.PeakDbs.Last());
             }
 
-            return -1d;
+            return (-1d, 0d);
         }
 
         /// <summary>
@@ -104,7 +105,7 @@ namespace OFDRCentralControlServer.Devices
         /// <param name="lengthRange_m"></param>
         /// <returns></returns>
         /// <exception cref="InvalidOperationException"></exception>
-        public async Task<double> ScanLengthAsync(
+        public async Task<(double Scan_Len, double Scan_Db)> ScanLengthAsync(
             double zeroLength_m,            // 上一步归零得到的基准线长
             CancellationToken ct
         )
@@ -125,12 +126,13 @@ namespace OFDRCentralControlServer.Devices
             Log.Debug($"ScanLengthAsync End");
             if (peak == null || peak.PeakPositions == null || peak.PeakPositions.Count == 0)
             {
-                return -1d;
+                return (-1d, 0d);
             }
 
             // 代表产品端点的峰：采用距离最大（如需按 dB 选择，可改成幅值最大）
             var productLen = peak.PeakPositions.Last() - zeroLength_m;
-            return productLen;
+            var productDb = peak.PeakDbs!.Last();
+            return (productLen, productDb);
         }
 
         // 发送 SCAN 并读取数据

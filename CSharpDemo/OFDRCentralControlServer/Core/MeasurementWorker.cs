@@ -105,13 +105,14 @@ namespace OFDRCentralControlServer.Core
                             Log
                         );
 
-                        if (res > 0)
+                        if (res.Scan_Len > 0)
                         {
                             data = new
                             {
                                 task.ClientId,
                                 mode = task.Mode,
-                                scan_length = res
+                                scan_length = res.Scan_Len,
+                                scan_Db = res.Scan_Db
                             };
                             result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                         }
@@ -130,13 +131,14 @@ namespace OFDRCentralControlServer.Core
                             Log
                         );
 
-                        if (zero > 0)
+                        if (zero.Zero_Len > 0)
                         {
                             data = new
                             {
                                 task.ClientId,
                                 mode = task.Mode,
-                                zero_length = zero,
+                                zero_length = zero.Zero_Len,
+                                zero_db = zero.Zero_Db
                             };
                             result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
                         }
