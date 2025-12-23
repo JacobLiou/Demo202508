@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FlaClientMock", "FlaClientM
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OFDRCentralControlServer", "..\OFDRCentralControlServer\OFDRCentralControlServer.csproj", "{4D003D29-4DF7-4EC9-A706-6C5903A0AF4F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestProject1", "TestProject1\TestProject1.csproj", "{08BD4C9F-B25D-469A-9850-A38D32CEBDAD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{4D003D29-4DF7-4EC9-A706-6C5903A0AF4F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4D003D29-4DF7-4EC9-A706-6C5903A0AF4F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{4D003D29-4DF7-4EC9-A706-6C5903A0AF4F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{08BD4C9F-B25D-469A-9850-A38D32CEBDAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{08BD4C9F-B25D-469A-9850-A38D32CEBDAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{08BD4C9F-B25D-469A-9850-A38D32CEBDAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{08BD4C9F-B25D-469A-9850-A38D32CEBDAD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
