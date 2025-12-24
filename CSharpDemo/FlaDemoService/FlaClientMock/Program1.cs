@@ -53,7 +53,7 @@ await Task.WhenAll(tasks);
 static async Task RunClientForeverAsync(int clientId, string host, int port, string mode, int qps)
 {
     var rand = new Random(unchecked(Environment.TickCount + clientId));
-    var submitIntervalMs = Math.Max(4000 / qps, 1000); // 每个客户端的速率控制
+    var submitIntervalMs = Math.Max(8000 / qps, 4000); // 每个客户端的速率控制
     var reconnectDelayMs = 1000;                    // 重连间隔
 
     // 持续运行：自动重连
@@ -123,18 +123,9 @@ static async Task RunClientForeverAsync(int clientId, string host, int port, str
 
 static string PickMode(string mode, int seq)
 {
-    if (mode == "mix")
-    {
-        // 简单轮换：zero/scan/auto_peak
-        var r = seq % 2;
-        return r == 0 ? "zero" : "scan";
-    }
-    return mode switch
-    {
-        "scan" => "scan",
-        "zero" => "zero",
-        _ => "scan"
-    };
+    // 简单轮换：zero/scan/auto_peak
+    var r = seq % 2;
+    return r == 1 ? "zero" : "scan";
 }
 
 static string BuildResultQuery(string taskId)

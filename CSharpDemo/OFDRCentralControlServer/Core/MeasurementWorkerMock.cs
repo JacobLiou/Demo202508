@@ -68,18 +68,20 @@ namespace OFDRCentralControlServer.Core
                         double segmentLen = Math.Round(resolution * pointCount, 3);
 
                         double zero_length = ParseDouble(task.Params.GetValueOrDefault("zero_length", "0.5"), 0.5);
-                        double scan_length = _rand.Next(10, 30) - zero_length;
-                        data = new { channel = task.ClientId, mode = task.Mode, scan_length };
-                        Log.Information("[MOCK] Scan done {TaskId}: scan_length={scan_length}m", task.TaskId, scan_length);
+                        double length_m = _rand.Next(10, 30) - zero_length;
+                        double peak_db = _rand.Next(-100, -20);
+                        data = new { channel = task.ClientId, mode = task.Mode, length_m, peak_db };
+                        Log.Information("[MOCK] Scan done {TaskId}: length_m={length_m}m peak_db={peak_db}", task.TaskId, length_m, peak_db);
                     }
                     else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
                     {
                         Log.Information("[MOCK] Zero begin for clientId {ClientId} task {TaskId}", task.ClientId, task.TaskId);
                         var delay = _rand.Next(_peakDelayMs.minMs, _peakDelayMs.maxMs + 1);
                         await Task.Delay(delay, ct);
-                        int zero_length = _rand.Next(0, 30);
-                        data = new { channel = task.ClientId, mode = task.Mode, zero_length };
-                        Log.Information("[MOCK] Zero done {TaskId}: zero_length={zero_length}", task.TaskId, zero_length);
+                        double length_m = _rand.Next(0, 30);
+                        double peak_db = _rand.Next(-100, -20);
+                        data = new { channel = task.ClientId, mode = task.Mode, length_m, peak_db };
+                        Log.Information("[MOCK] Zero done {TaskId}: length_m={length_m}m peak_db={peak_db}", task.TaskId, length_m, peak_db);
                     }
                     else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))
                     {
