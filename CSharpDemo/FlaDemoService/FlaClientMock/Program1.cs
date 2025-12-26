@@ -198,13 +198,13 @@ static (string payload, string taskIdHint) BuildSubmitPayload(int clientId, int 
 {
     if (mode == "scan")
     {
-        var zero_len = (rand.NextDouble() * 30).ToString("F1"); // 0.0 ~ 30.0
+        var zero_length = (rand.NextDouble() * 30).ToString("F1"); // 0.0 ~ 30.0
         var payloadObj = new
         {
             command = "submit",
             clientId,
             mode = "scan",
-            @params = new { zero_len }
+            @params = new { zero_length }
         };
         var json = JsonSerializer.Serialize(payloadObj);
         return (json, $"scan-{seq}");

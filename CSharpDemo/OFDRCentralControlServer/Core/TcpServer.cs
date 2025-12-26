@@ -10,15 +10,19 @@ namespace OFDRCentralControlServer.Core
     public class TcpServer
     {
         private readonly int _port;
-        private readonly Channel<MeasureTask> _queue;
+
+        private readonly Channel<MeasureTask> _channel;
+
         private TcpListener? _listener;
+
         private readonly List<ClientSession> _sessions = new();
+
         private readonly object _lock = new();
 
-        public TcpServer(int port, Channel<MeasureTask> queue)
+        public TcpServer(int port, Channel<MeasureTask> channel)
         {
             _port = port;
-            _queue = queue;
+            _channel = channel;
         }
 
         public async Task StartAsync(CancellationToken ct)
@@ -102,7 +106,8 @@ namespace OFDRCentralControlServer.Core
 
                             var taskId = $"T{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString()[..8]}";
                             var task = new MeasureTask(taskId, session, reqSubmit.ClientId, reqSubmit.Mode!, reqSubmit.Params ?? new(), DateTime.UtcNow);
-                            await _queue.Writer.WriteAsync(task, ct);
+                            await _channel.Writer.WriteAsync(task, ct);
+                            RunningTaskTracker.Instance.MarkQueued(task.TaskId);
                             // send ack with unified field names
                             await session.SendAsync(new AckMessage("ack", taskId, reqSubmit.ClientId, reqSubmit.Mode), ct);
                             break;
@@ -110,20 +115,28 @@ namespace OFDRCentralControlServer.Core
                         case "result":
                             var reqStatus = JsonSerializer.Deserialize<ResultRequest>(line, options);
                             var tId = reqStatus?.TaskId != null ? reqStatus.TaskId : "";
-
-                            // 优先判断是否正在运行（由 RunningTaskTracker 标记）
-                            if (!string.IsNullOrEmpty(tId) && RunningTaskTracker.Instance.IsRunning(tId))
+                            if (string.IsNullOrEmpty(tId))
                             {
-                                await session.SendAsync(new ResultMessage("result", tId, status: "running"), ct);
+                                await session.SendAsync(new ResultMessage("result", tId, status: "unknown"), ct);
+                                break;
                             }
-                            else if (HourlyResultStore.Instance.TryGet(tId, out var sResult))
+                            // 优先判断是否已经有结果
+                            if (HourlyResultStore.Instance.TryGet(tId, out var sResult))
                             {
                                 // stored final result (status=complete + success/data/error)
                                 await session.SendAsync(sResult!, ct);
                             }
-                            else
+                            else if (RunningTaskTracker.Instance.IsQueued(tId))
                             {
                                 await session.SendAsync(new ResultMessage("result", tId, status: "queued"), ct);
+                            }
+                            else if (RunningTaskTracker.Instance.IsRunning(tId))
+                            {
+                                await session.SendAsync(new ResultMessage("result", tId, status: "running"), ct);
+                            }
+                            else
+                            {
+                                await session.SendAsync(new ResultMessage("result", tId, status: "expired"), ct);
                             }
                             break;
 

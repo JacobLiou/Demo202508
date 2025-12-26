@@ -23,9 +23,9 @@ namespace OFDRCentralControlServer.Core
             TcpServer server,
             FlaInstrumentAdapterMock fla,
             OpticalSwitchControllerMock opticalSwitch,
-            int switchDelayMs = 200,
-            int scanMinMs = 800, int scanMaxMs = 1500,
-            int peakMinMs = 500, int peakMaxMs = 1000)
+            int switchDelayMs = 1500,
+            int scanMinMs = 800, int scanMaxMs = 3500,
+            int peakMinMs = 900, int peakMaxMs = 2000)
         {
             _queue = queue;
             _server = server;
@@ -50,7 +50,7 @@ namespace OFDRCentralControlServer.Core
                 try
                 {
                     Log.Information("[MOCK] Task start {TaskId} ch={Channel} mode={Mode}", task.TaskId, task.ClientId, task.Mode);
-                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "runnig"), ct);
+                    //await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "runnig"), ct);
 
                     RunningTaskTracker.Instance.MarkRunning(task.TaskId);
                     await Task.Delay(_switchDelayMs, ct);
@@ -103,7 +103,7 @@ namespace OFDRCentralControlServer.Core
                     }
 
                     var result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
-                    await _server.SendResultAsync(task, result, ct);
+                    //await _server.SendResultAsync(task, result, ct);
                     Log.Information("[MOCK] Task success {TaskId}", task.TaskId);
                     HourlyResultStore.Instance.AddOrUpdate(task.TaskId, result);
                     RunningTaskTracker.Instance.MarkFinished(task.TaskId);
@@ -111,7 +111,7 @@ namespace OFDRCentralControlServer.Core
                 catch (Exception ex)
                 {
                     var failResult = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: ex.Message);
-                    await _server.SendResultAsync(task, failResult, ct);
+                    //await _server.SendResultAsync(task, failResult, ct);
                     Log.Error(ex, "[MOCK] Task failed {TaskId}", task.TaskId);
                     HourlyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
                     RunningTaskTracker.Instance.MarkFinished(task.TaskId);

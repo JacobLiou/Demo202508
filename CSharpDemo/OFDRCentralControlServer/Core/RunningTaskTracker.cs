@@ -15,11 +15,17 @@ namespace OFDRCentralControlServer.Core
         private RunningTaskTracker()
         { }
 
-        public void MarkRunning(string taskId) => _running.TryAdd(taskId, 0);
+        public void MarkQueued(string taskId) => _running.TryAdd(taskId, 0);
+
+        public void MarkRunning(string taskId) => _running.TryAdd(taskId, 1);
 
         public void MarkFinished(string taskId) => _running.TryRemove(taskId, out _);
 
-        public bool IsRunning(string taskId) => _running.ContainsKey(taskId);
+        public bool IsQueued(string taskId) => 
+            _running.ContainsKey(taskId) && _running[taskId] == 0;
+
+        public bool IsRunning(string taskId) =>
+          _running.ContainsKey(taskId) && _running[taskId] == 1;
 
         public int Count => _running.Count;
     }
