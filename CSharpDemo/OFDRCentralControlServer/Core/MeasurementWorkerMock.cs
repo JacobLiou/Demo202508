@@ -70,7 +70,7 @@ namespace OFDRCentralControlServer.Core
                         double zero_length = ParseDouble(task.Params.GetValueOrDefault("zero_length", "0.5"), 0.5);
                         double length_m = _rand.Next(10, 30) - zero_length;
                         double peak_db = _rand.Next(-100, -20);
-                        data = new { clientid = task.ClientId, mode = task.Mode, length_m, peak_db };
+                        data = new { clientId = task.ClientId, mode = task.Mode, length_m, peak_db };
                         Log.Information("[MOCK] Scan done {TaskId}: length_m={length_m}m peak_db={peak_db}", task.TaskId, length_m, peak_db);
                     }
                     else if (task.Mode.Equals("zero", StringComparison.OrdinalIgnoreCase))
@@ -80,7 +80,7 @@ namespace OFDRCentralControlServer.Core
                         await Task.Delay(delay, ct);
                         double length_m = _rand.Next(0, 30);
                         double peak_db = _rand.Next(-100, -20);
-                        data = new { clientid = task.ClientId, mode = task.Mode, length_m, peak_db };
+                        data = new { clientId = task.ClientId, mode = task.Mode, length_m, peak_db };
                         Log.Information("[MOCK] Zero done {TaskId}: length_m={length_m}m peak_db={peak_db}", task.TaskId, length_m, peak_db);
                     }
                     else if (task.Mode.Equals("auto_peak", StringComparison.OrdinalIgnoreCase))

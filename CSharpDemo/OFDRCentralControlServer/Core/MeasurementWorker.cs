@@ -110,7 +110,7 @@ namespace OFDRCentralControlServer.Core
                         {
                             data = new
                             {
-                                clientid = task.ClientId,
+                                clientId = task.ClientId,
                                 mode = task.Mode,
                                 length_m = res.Scan_Len,
                                 peak_db = res.Scan_Db
@@ -137,7 +137,7 @@ namespace OFDRCentralControlServer.Core
                         {
                             data = new
                             {
-                                clientid = task.ClientId,
+                                clientId = task.ClientId,
                                 mode = task.Mode,
                                 length_m = zero.Zero_Len,
                                 peak_db = zero.Zero_Db
