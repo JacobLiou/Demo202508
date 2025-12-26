@@ -90,7 +90,7 @@ namespace OFDRCentralControlServer.Core
                     );
                     Log.Information("Switch set to {Channel} for task {TaskId}", task.ClientId, task.TaskId);
 
-                    var result = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: null);
+                    var result = new ResultMessage("result", task.TaskId, status: ResultStatus.running.ToString(), data: null, error: null);
                     object data;
                     if (task.Mode.Equals("scan", StringComparison.OrdinalIgnoreCase))
                     {
@@ -115,7 +115,7 @@ namespace OFDRCentralControlServer.Core
                                 length_m = res.Scan_Len,
                                 peak_db = res.Scan_Db
                             };
-                            result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
+                            result = new ResultMessage("result", task.TaskId, status: ResultStatus.success.ToString(), data: data, error: null);
                         }
 
                         Log.Debug(JsonSerializer.Serialize(result));
@@ -142,7 +142,7 @@ namespace OFDRCentralControlServer.Core
                                 length_m = zero.Zero_Len,
                                 peak_db = zero.Zero_Db
                             };
-                            result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
+                            result = new ResultMessage("result", task.TaskId, status: ResultStatus.success.ToString(), data: data, error: null);
                         }
 
                         Log.Debug(JsonSerializer.Serialize(result));
@@ -162,7 +162,7 @@ namespace OFDRCentralControlServer.Core
                 catch (Exception ex)
                 {
                     // 最终失败返回（status = complete, success=false）
-                    var failResult = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: ex.Message);
+                    var failResult = new ResultMessage("result", task.TaskId, status: ResultStatus.failed.ToString(), data: null, error: ex.Message.Substring(0, 128));
                     Log.Error(JsonSerializer.Serialize(failResult));
                     //await _server.SendResultAsync(task, failResult, ct);
                     HourlyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);

@@ -102,7 +102,7 @@ namespace OFDRCentralControlServer.Core
                         throw new Exception($"unknown mode {task.Mode}");
                     }
 
-                    var result = new ResultMessage("result", task.TaskId, status: "complete", success: true, data: data, error: null);
+                    var result = new ResultMessage("result", task.TaskId, status: ResultStatus.success.ToString(), data: data, error: null);
                     //await _server.SendResultAsync(task, result, ct);
                     Log.Information("[MOCK] Task success {TaskId}", task.TaskId);
                     HourlyResultStore.Instance.AddOrUpdate(task.TaskId, result);
@@ -110,7 +110,7 @@ namespace OFDRCentralControlServer.Core
                 }
                 catch (Exception ex)
                 {
-                    var failResult = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: ex.Message);
+                    var failResult = new ResultMessage("result", task.TaskId, status: ResultStatus.failed.ToString(), data: null, error: ex.Message.Substring(0, 128));
                     //await _server.SendResultAsync(task, failResult, ct);
                     Log.Error(ex, "[MOCK] Task failed {TaskId}", task.TaskId);
                     HourlyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
