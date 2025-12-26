@@ -67,7 +67,7 @@ namespace OFDRCentralControlServer.Core
 
                     // 标记为运行中并通知客户端
                     RunningTaskTracker.Instance.MarkRunning(task.TaskId);
-                    await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "running"), ct);
+                    //await _server.SendResultAsync(task, new ResultMessage("result", task.TaskId, status: "running"), ct);
 
                     await RetryAsync(
                         async () => await _switch.ConnectAsync(),
@@ -153,7 +153,7 @@ namespace OFDRCentralControlServer.Core
                         throw new Exception($"unknown mode {task.Mode}");
                     }
 
-                    await _server.SendResultAsync(task, result, ct);
+                    //await _server.SendResultAsync(task, result, ct);
                     Log.Information("Task success {TaskId}", task.TaskId);
                     HourlyResultStore.Instance.AddOrUpdate(task.TaskId, result);
                     // 标记完成（脱离 running）
@@ -164,7 +164,7 @@ namespace OFDRCentralControlServer.Core
                     // 最终失败返回（status = complete, success=false）
                     var failResult = new ResultMessage("result", task.TaskId, status: "complete", success: false, data: null, error: ex.Message);
                     Log.Error(JsonSerializer.Serialize(failResult));
-                    await _server.SendResultAsync(task, failResult, ct);
+                    //await _server.SendResultAsync(task, failResult, ct);
                     HourlyResultStore.Instance.AddOrUpdate(task.TaskId, failResult);
                     // 标记完成（即使失败也不在 running）
                     RunningTaskTracker.Instance.MarkFinished(task.TaskId);

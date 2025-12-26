@@ -64,8 +64,8 @@ static async Task RunClientForeverAsync(int clientId, string host, int port, str
         {
             await tcp.ConnectAsync(host, port);
             using var stream = tcp.GetStream();
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            using var writer = new StreamWriter(stream, Encoding.UTF8) { AutoFlush = true };
+            using var reader = new StreamReader(stream, Encoding.ASCII);
+            using var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true };
 
             Console.WriteLine($"[C{clientId:00}] Connected.");
 

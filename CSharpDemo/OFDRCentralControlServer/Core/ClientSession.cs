@@ -19,8 +19,8 @@ namespace OFDRCentralControlServer.Core
         {
             _client = client;
             _stream = client.GetStream();
-            _reader = new StreamReader(_stream, Encoding.UTF8);
-            _writer = new StreamWriter(_stream, Encoding.UTF8) { AutoFlush = true };
+            _reader = new StreamReader(_stream, Encoding.ASCII);
+            _writer = new StreamWriter(_stream, Encoding.ASCII) { AutoFlush = true };
         }
 
         public async Task<string?> ReadLineAsync(CancellationToken ct)
