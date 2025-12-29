@@ -117,6 +117,10 @@ namespace OFDRCentralControlServer.Core
                             };
                             result = new ResultMessage("result", task.TaskId, status: ResultStatus.success.ToString(), data: data, error: null);
                         }
+                        else
+                        {
+                            result = new ResultMessage("result", task.TaskId, status: ResultStatus.failed.ToString(), data: null, error: "FLA scan error reuslt < 0");
+                        }
 
                         Log.Debug(JsonSerializer.Serialize(result));
                         Log.Information("FLA scan done for task {TaskId}: scan_data={Res}", task.TaskId, res);
@@ -143,6 +147,10 @@ namespace OFDRCentralControlServer.Core
                                 peak_db = zero.Zero_Db
                             };
                             result = new ResultMessage("result", task.TaskId, status: ResultStatus.success.ToString(), data: data, error: null);
+                        }
+                        else
+                        {
+                            result = new ResultMessage("result", task.TaskId, status: ResultStatus.failed.ToString(), data: null, error: "FLA zero error reuslt < 0");
                         }
 
                         Log.Debug(JsonSerializer.Serialize(result));
