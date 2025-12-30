@@ -12,12 +12,17 @@ namespace OFDRCentralControlServer.Core
         private readonly StreamReader _reader;
         private readonly StreamWriter _writer;
         private readonly SemaphoreSlim _writeLock = new(1, 1);
+
         public EndPoint? RemoteEndPoint => _client.Client?.RemoteEndPoint;
         public bool Connected => _client.Connected;
+        public DateTime LastActive { get; set; } = DateTime.UtcNow;
 
         public ClientSession(TcpClient client)
         {
             _client = client;
+            _client.NoDelay = true;
+            _client.ReceiveTimeout = 10000;
+            _client.SendTimeout = 10000;
             _stream = client.GetStream();
             _reader = new StreamReader(_stream, Encoding.ASCII);
             _writer = new StreamWriter(_stream, Encoding.ASCII) { AutoFlush = true };
@@ -25,8 +30,15 @@ namespace OFDRCentralControlServer.Core
 
         public async Task<string?> ReadLineAsync(CancellationToken ct)
         {
-            try { return await _reader.ReadLineAsync(ct); }
-            catch { return null; }
+            try
+            {
+                LastActive = DateTime.UtcNow;
+                return await _reader.ReadLineAsync(ct);
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public async Task SendAsync(object obj, CancellationToken ct)
@@ -37,6 +49,7 @@ namespace OFDRCentralControlServer.Core
             try
             {
                 await _writer.WriteLineAsync(json);
+                LastActive = DateTime.UtcNow;
             }
             catch
             {

@@ -19,6 +19,8 @@ namespace OFDRCentralControlServer.Core
 
         private readonly object _lock = new();
 
+        private readonly CancellationToken _serverLifetime;
+
         public TcpServer(int port, Channel<MeasureTask> channel)
         {
             _port = port;
@@ -28,7 +30,8 @@ namespace OFDRCentralControlServer.Core
         public async Task StartAsync(CancellationToken ct)
         {
             _listener = new TcpListener(IPAddress.Any, _port);
-            _listener.Start();
+            _listener.Server.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+            _listener.Start(100);
 
             while (!ct.IsCancellationRequested)
             {
@@ -71,7 +74,9 @@ namespace OFDRCentralControlServer.Core
             {
                 while (!ct.IsCancellationRequested && session.Connected)
                 {
-                    var line = await session.ReadLineAsync(ct);
+                    using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                    readCts.CancelAfter(TimeSpan.FromSeconds(10));
+                    var line = await session.ReadLineAsync(readCts.Token);
                     if (line == null) break; // 客户端断开
                     if (string.IsNullOrWhiteSpace(line)) continue;
 
@@ -147,6 +152,10 @@ namespace OFDRCentralControlServer.Core
                 }
             }
             catch (OperationCanceledException) { }
+            catch (TimeoutException ex)
+            {
+                Log.Error($"[Server] Client session timeout: {ex.Message}");
+            }
             catch (Exception ex)
             {
                 Log.Error($"[Server] Client session error: {ex.Message}");
