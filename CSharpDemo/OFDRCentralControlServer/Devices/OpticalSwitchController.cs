@@ -20,6 +20,44 @@ namespace OFDRCentralControlServer.Devices
 
         public bool IsConnected { get; private set; }
 
+        private readonly int _sw1Addr = 1;   // SW1
+        private readonly int _sw9Addr = 9;   // SW9
+        private readonly int _inputPort = 1; // BB 固定为 1
+        private readonly int _sw1ToSw9State = 1; // 1 或 2：现场确认 SW1 的哪个状态通向 SW9
+
+        // SW9 端口 → 标签映射，来自光路图
+        private readonly Dictionary<int, string> _sw9Map = new Dictionary<int, string>
+        {
+            {1, "L3-4"},
+            {2, "L3-3"},
+            {3, "L3-2"},
+            {4, "L3-1"},
+            {5, "L2-4"},
+            {6, "L2-3"},
+            {7, "L2-2"},
+            {8, "L2-1"},
+        };
+
+        private readonly Dictionary<int, string> _commandMap = new Dictionary<int, string>
+        {
+            {1, "MSW 1,1,2;9,1,1;"},
+            {2, "MSW 1,1,2;9,1,2;"},
+            {3, "MSW 1,1,2;9,1,3;"},
+            {4, "MSW 1,1,2;9,1,4;"},
+            {5, "MSW 1,1,2;9,1,5;"},
+            {6, "MSW 1,1,2;9,1,6;"},
+            {7, "MSW 1,1,2;9,1,7;"},
+            {8, "MSW 1,1,2;9,1,8;"},
+            {9, "MSW 1,1,2;10,1,1;"},
+            {10, "MSW 1,1,2;10,1,2;"},
+            {11, "MSW 1,1,2;10,1,3;"},
+            {12, "MSW 1,1,2;10,1,4;"},
+            {13, "MSW 1,1,2;10,1,5;"},
+            {14, "MSW 1,1,2;10,1,6;"},
+            {15, "MSW 1,1,2;10,1,7;"},
+            {16, "MSW 1,1,2;10,1,8;"},
+        };
+
         private readonly ILogger Log = Serilog.Log.ForContext<OpticalSwitchController>();
 
         public OpticalSwitchController(string portName, int baud, int switchIndex, int inputChannel)
@@ -68,9 +106,56 @@ namespace OFDRCentralControlServer.Devices
             return Task.CompletedTask;
         }
 
+        /// <summary>
+        /// 进行路由。
+        /// </summary>
+        public async Task RouteL1_1To(int clientId, CancellationToken ct)
+        {
+            //MSW 1,1,1关闭 MSW 1,1,2打开
+            //MSW 2,1,1关闭 MSW 2,1,2打开
+            //9,1,1 --- 9,1,8
+            //MSW 10,1,1 --- 10,1,8
+            // 1) 先把 SW1 切到 SW9 的支路
+            string cmd = $"MSW {_sw1Addr},{_inputPort},{_sw1ToSw9State}";
+            Log.Debug($"SWITCH send: {cmd}");
+            await WriteAsync(cmd, ct);
+
+            var lines = await ReadUntilPromptAsync(ct, TimeSpan.FromSeconds(1));
+            Log.Debug("SWITCH recv: {Line}", lines);
+
+            EnsureOkOrThrow(lines);
+
+            cmd = $"MSW {_sw9Addr},{_inputPort},{clientId}";
+            Log.Debug($"SWITCH send: {cmd}");
+            await WriteAsync(cmd, ct);
+
+            lines = await ReadUntilPromptAsync(ct, TimeSpan.FromSeconds(1));
+            Log.Debug("SWITCH recv: {Line}", lines);
+
+            EnsureOkOrThrow(lines);
+        }
+
+        public async Task SwitchToOutputMSWAsync(int outputChannel, CancellationToken ct)
+        {
+            var cmd = _commandMap[outputChannel];
+            Log.Debug($"SWITCH send: {cmd}");
+            await WriteAsync(cmd, ct);
+
+            var lines = await ReadUntilPromptAsync(ct, TimeSpan.FromSeconds(1));
+            Log.Debug("SWITCH recv: {Line}", lines);
+
+            EnsureOkOrThrow(lines);
+        }
+
+        /// <summary>
+        /// 这里输出通道要加一 因为设备通道从 1 开始编号
+        /// </summary>
+        /// <param name="outputChannel"></param>
+        /// <param name="ct"></param>
+        /// <returns></returns>
         public async Task SwitchToOutputAsync(int outputChannel, CancellationToken ct)
         {
-            var cmd = $"SW {_switchIndex} SPOS {_inputChannel} {outputChannel}";
+            var cmd = $"SW {_switchIndex} SPOS {_inputChannel} {outputChannel + 1}";
             Log.Debug($"SWITCH send: {cmd}");
             await WriteAsync(cmd, ct);
 

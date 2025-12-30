@@ -72,13 +72,26 @@ namespace OFDRCentralControlServer.Core
         {
             try
             {
+                //session.LastActive = DateTime.UtcNow;
+
                 while (!ct.IsCancellationRequested && session.Connected)
                 {
+                    //if (DateTime.UtcNow - session.LastActive > TimeSpan.FromMinutes(1))
+                    //{
+                    //    Log.Warning($"Idle Timeout {session.LastActive}");
+                    //    break;
+                    //}
+
                     using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
                     readCts.CancelAfter(TimeSpan.FromSeconds(10));
                     var line = await session.ReadLineAsync(readCts.Token);
-                    if (line == null) break; // 客户端断开
-                    if (string.IsNullOrWhiteSpace(line)) continue;
+
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        Log.Debug("line null to continue");
+                        //break; // 客户端断开 不能断开客户端
+                        continue;
+                    }
 
                     Request? req = null;
                     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };

@@ -80,7 +80,7 @@ namespace OFDRCentralControlServer.Core
 
                     // 切光开关 —— 带重试
                     await RetryAsync(
-                        async () => await _switch.SwitchToOutputAsync(task.ClientId, ct),
+                        async () => await _switch.SwitchToOutputMSWAsync(task.ClientId, ct),
                         "switch",
                         RETRY_SWITCH_MAX,
                         BASE_DELAY_SWITCH,

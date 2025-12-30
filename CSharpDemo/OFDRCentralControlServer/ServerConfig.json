@@ -1,5 +1,5 @@
 {
-  "RunMode": "real",
+  "RunMode": "mock",
 
   "ListenPort": 5600,
 

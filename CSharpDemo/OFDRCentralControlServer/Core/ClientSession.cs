@@ -21,8 +21,8 @@ namespace OFDRCentralControlServer.Core
         {
             _client = client;
             _client.NoDelay = true;
-            _client.ReceiveTimeout = 10000;
-            _client.SendTimeout = 10000;
+            _client.ReceiveTimeout = 30000;
+            _client.SendTimeout = 30000;
             _stream = client.GetStream();
             _reader = new StreamReader(_stream, Encoding.ASCII);
             _writer = new StreamWriter(_stream, Encoding.ASCII) { AutoFlush = true };
