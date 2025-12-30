@@ -72,27 +72,57 @@ namespace OFDRCentralControlServer.Core
         {
             try
             {
-                //session.LastActive = DateTime.UtcNow;
-
-                while (!ct.IsCancellationRequested && session.Connected)
+                while (!ct.IsCancellationRequested)
                 {
-                    //if (DateTime.UtcNow - session.LastActive > TimeSpan.FromMinutes(1))
-                    //{
-                    //    Log.Warning($"Idle Timeout {session.LastActive}");
-                    //    break;
-                    //}
-
-                    using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
-                    readCts.CancelAfter(TimeSpan.FromSeconds(10));
-                    var line = await session.ReadLineAsync(readCts.Token);
-
-                    if (string.IsNullOrWhiteSpace(line))
+                    string? line;
+                    try
                     {
-                        Log.Debug("line null to continue");
-                        //break; // 客户端断开 不能断开客户端
+                        using var readCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                        readCts.CancelAfter(TimeSpan.FromSeconds(10));
+
+                        line = await session.ReadLineAsync(readCts.Token);
+                    }
+                    catch (OperationCanceledException) // 读超时或取消 -> 不等于断开
+                    {
+                        // 空闲超时：继续循环（可以选择发心跳）
+                        Log.Debug("[Server] ReadLine timeout/canceled: {remote}", session.RemoteEndPoint);
+                        line = string.Empty;
+                        await session.SendAsync(new { command = "ping" }, ct);
+                        await Task.Delay(100, ct); // 避免紧循环
+                        continue;
+                    }
+                    catch (TimeoutException ex) // 如果你的 ReadLineAsync 会抛这个
+                    {
+                        Log.Debug("[Server] ReadLine timeout for {remote}: {msg}", session.RemoteEndPoint, ex.Message);
+                        await Task.Delay(100, ct); // 避免紧循环
+                        continue;
+                    }
+                    catch (IOException ex)
+                    {
+                        Log.Error("[Server] ReadLine I/O error for {remote}: {msg}", session.RemoteEndPoint, ex.Message);
+                        break; // 通常视为连接异常结束
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("[Server] ReadLine error for {remote}: {msg}", session.RemoteEndPoint, ex.Message);
+                        break; // 其它未知异常，结束会话更稳妥
+                    }
+
+                    // 仅当 line == null 才认为断开（EOF）
+                    if (line is null)
+                    {
+                        Log.Debug("[Server] EOF -> client disconnected: {remote}", session.RemoteEndPoint);
+                        break;
+                    }
+
+                    // 空行或纯空白：不是断开，跳过
+                    if (string.IsNullOrEmpty(line))
+                    {
+                        Log.Debug("[Server] Blank line -> continue: {remote}", session.RemoteEndPoint);
                         continue;
                     }
 
+                    Log.Debug("Resolve Request");
                     Request? req = null;
                     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                     try
@@ -165,10 +195,6 @@ namespace OFDRCentralControlServer.Core
                 }
             }
             catch (OperationCanceledException) { }
-            catch (TimeoutException ex)
-            {
-                Log.Error($"[Server] Client session timeout: {ex.Message}");
-            }
             catch (Exception ex)
             {
                 Log.Error($"[Server] Client session error: {ex.Message}");

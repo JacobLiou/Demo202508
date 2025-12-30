@@ -37,6 +37,17 @@ try
         Log.Information("\n[Server] Shutting down...");
     };
 
+    // 启动一个后台任务，每隔 60 秒清屏
+    _ = Task.Run(async () =>
+    {
+        while (true)
+        {
+            await Task.Delay(TimeSpan.FromMinutes(2));
+            Console.Clear();
+            Log.Information($"[Info] Screen cleared at {DateTime.Now}");
+        }
+    });
+
     var queue = Channel.CreateUnbounded<MeasureTask>(new UnboundedChannelOptions { SingleReader = false, SingleWriter = false });
     var server = new TcpServer(cfg.ListenPort, queue);
 

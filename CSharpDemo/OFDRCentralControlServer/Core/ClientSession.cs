@@ -30,15 +30,8 @@ namespace OFDRCentralControlServer.Core
 
         public async Task<string?> ReadLineAsync(CancellationToken ct)
         {
-            try
-            {
-                LastActive = DateTime.UtcNow;
-                return await _reader.ReadLineAsync(ct);
-            }
-            catch
-            {
-                return null;
-            }
+            LastActive = DateTime.UtcNow;
+            return await _reader.ReadLineAsync(ct);
         }
 
         public async Task SendAsync(object obj, CancellationToken ct)
