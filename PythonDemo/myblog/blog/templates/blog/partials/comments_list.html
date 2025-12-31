@@ -1,0 +1,16 @@
+{% for comment in comments %}
+<div class="comment-item">
+    <div class="comment-avatar">{{ comment.author_name|slice:":1" }}</div>
+    <div class="comment-body">
+        <div class="comment-header">
+            <span class="comment-author">{{ comment.author_name }}</span>
+            <span class="comment-date">{{ comment.created_at|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="comment-content">{{ comment.content|linebreaks }}</div>
+    </div>
+</div>
+{% empty %}
+<div class="empty-comments">
+    <p>暂无评论，快来抢沙发吧！</p>
+</div>
+{% endfor %}

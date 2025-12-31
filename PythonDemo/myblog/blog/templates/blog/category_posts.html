@@ -1,0 +1,76 @@
+{% extends 'blog/base.html' %}
+
+{% block title %}{{ category.name }} - 我的博客{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1>{{ category.name }}</h1>
+    {% if category.description %}
+    <p class="subtitle">{{ category.description }}</p>
+    {% endif %}
+</div>
+
+<div class="content-wrapper">
+    <div class="posts-section">
+        {% if posts %}
+        <div class="posts-grid">
+            {% for post in posts %}
+            <article class="post-card">
+                {% if post.cover_image %}
+                <div class="post-cover" style="background-image: url('{{ post.cover_image }}')"></div>
+                {% else %}
+                <div class="post-cover default-cover">
+                    <span class="cover-icon">📄</span>
+                </div>
+                {% endif %}
+                <div class="post-content">
+                    <h2 class="post-title">
+                        <a href="{% url 'blog:post_detail' post.slug %}">{{ post.title }}</a>
+                    </h2>
+                    <p class="post-excerpt">{{ post.excerpt|truncatechars:120 }}</p>
+                    <div class="post-meta">
+                        <span class="meta-author">👤 {{ post.author.username }}</span>
+                        <span class="meta-date">📅 {{ post.created_at|date:"Y年m月d日" }}</span>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+
+        {% if posts.has_other_pages %}
+        <div class="pagination">
+            {% if posts.has_previous %}
+            <a href="?page={{ posts.previous_page_number }}" class="page-link">&laquo; 上一页</a>
+            {% endif %}
+            <span class="page-info">第 {{ posts.number }} 页 / 共 {{ posts.paginator.num_pages }} 页</span>
+            {% if posts.has_next %}
+            <a href="?page={{ posts.next_page_number }}" class="page-link">下一页 &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">📭</span>
+            <h3>该分类暂无文章</h3>
+            <a href="{% url 'blog:post_list' %}" class="btn btn-secondary">&larr; 返回首页</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <aside class="sidebar">
+        <div class="widget">
+            <h3 class="widget-title">分类</h3>
+            <ul class="category-list">
+                {% for cat in categories %}
+                <li class="{% if cat.slug == category.slug %}active{% endif %}">
+                    <a href="{% url 'blog:category_posts' cat.slug %}">
+                        {{ cat.name }}
+                        <span class="count">{{ cat.posts.count }}</span>
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </aside>
+</div>
+{% endblock %}

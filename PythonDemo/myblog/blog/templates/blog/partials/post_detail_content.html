@@ -1,0 +1,71 @@
+<article class="post-detail">
+    <header class="post-header">
+        {% if post.category %}
+        <a href="{% url 'blog:category_posts' post.category.slug %}" class="post-category-tag spa-link">
+            {{ post.category.name }}
+        </a>
+        {% endif %}
+        <h1 class="post-title">{{ post.title }}</h1>
+        <div class="post-meta">
+            <span class="meta-author">👤 {{ post.author.username }}</span>
+            <span class="meta-date">📅 {{ post.created_at|date:"Y年m月d日 H:i" }}</span>
+            <span class="meta-views">👁 {{ post.views }} 次阅读</span>
+            <span class="meta-comments">💬 {{ comments.count }} 条评论</span>
+        </div>
+    </header>
+
+    {% if post.cover_image %}
+    <div class="post-cover-large" style="background-image: url('{{ post.cover_image }}')"></div>
+    {% endif %}
+
+    <div class="post-body">
+        {{ post.content|linebreaks }}
+    </div>
+
+    <footer class="post-footer">
+        <div class="post-tags">
+            <a href="{% url 'blog:post_list' %}" class="btn btn-secondary spa-link">&larr; 返回列表</a>
+        </div>
+    </footer>
+</article>
+
+{% if related_posts %}
+<section class="related-posts">
+    <h3>相关文章</h3>
+    <div class="related-grid">
+        {% for related in related_posts %}
+        <a href="{% url 'blog:post_detail' related.slug %}" class="related-item spa-link">
+            <span class="related-title">{{ related.title }}</span>
+            <span class="related-date">{{ related.created_at|date:"m月d日" }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<section class="comments-section">
+    <h3>评论 ({{ comments.count }})</h3>
+
+    <form id="comment-form" class="comment-form" data-url="{% url 'blog:add_comment' post.slug %}">
+        {% csrf_token %}
+        <div class="form-row">
+            <div class="form-group">
+                <label for="author_name">昵称 *</label>
+                <input type="text" id="author_name" name="author_name" required placeholder="请输入昵称">
+            </div>
+            <div class="form-group">
+                <label for="author_email">邮箱</label>
+                <input type="email" id="author_email" name="author_email" placeholder="选填">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="content">评论内容 *</label>
+            <textarea id="content" name="content" rows="4" required placeholder="写下你的评论..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">发表评论</button>
+    </form>
+
+    <div id="comments-list" class="comments-list">
+        {% include 'blog/partials/comments_list.html' %}
+    </div>
+</section>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title id="page-title">{% block title %}我的博客{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;700&display=swap"
+        rel="stylesheet">
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="container">
+            <a href="{% url 'blog:post_list' %}" class="logo spa-link">
+                <span class="logo-icon">📝</span>
+                <span class="logo-text">我的博客</span>
+            </a>
+            <div class="nav-links">
+                <a href="{% url 'blog:post_list' %}" class="spa-link">首页</a>
+                <a href="/admin/" target="_blank">管理</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 加载指示器 -->
+    <div id="loading-overlay" class="loading-overlay hidden">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Toast 消息 -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <main class="main-content">
+        <div class="container">
+            <div id="app-content">
+                {% block content %}{% endblock %}
+            </div>
+        </div>
+    </main>
+
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2024 我的博客. 使用 Django 构建</p>
+        </div>
+    </footer>
+
+    <script>
+        // ===========================
+        // SPA Router
+        // ===========================
+        class SPARouter {
+            constructor() {
+                this.contentEl = document.getElementById('app-content');
+                this.titleEl = document.getElementById('page-title');
+                this.loadingEl = document.getElementById('loading-overlay');
+                this.init();
+            }
+
+            init() {
+                // 拦截所有 SPA 链接点击
+                document.addEventListener('click', (e) => {
+                    const link = e.target.closest('.spa-link');
+                    if (link) {
+                        e.preventDefault();
+                        const url = link.getAttribute('href');
+                        this.navigate(url);
+                    }
+                });
+
+                // 处理浏览器前进/后退
+                window.addEventListener('popstate', (e) => {
+                    this.loadPage(window.location.pathname + window.location.search, false);
+                });
+
+                // 绑定评论表单提交
+                document.addEventListener('submit', (e) => {
+                    if (e.target.id === 'comment-form') {
+                        e.preventDefault();
+                        this.submitComment(e.target);
+                    }
+                });
+            }
+
+            navigate(url) {
+                history.pushState({}, '', url);
+                this.loadPage(url);
+            }
+
+            async loadPage(url, showLoading = true) {
+                if (showLoading) {
+                    this.showLoading();
+                }
+
+                try {
+                    const response = await fetch(url, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        }
+                    });
+
+                    if (!response.ok) throw new Error('加载失败');
+
+                    const data = await response.json();
+
+                    // 淡出效果
+                    this.contentEl.style.opacity = '0';
+
+                    setTimeout(() => {
+                        this.contentEl.innerHTML = data.html;
+                        this.titleEl.textContent = data.title;
+
+                        // 滚动到顶部
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+                        // 淡入效果
+                        this.contentEl.style.opacity = '1';
+                    }, 200);
+
+                } catch (error) {
+                    console.error('SPA 加载错误:', error);
+                    this.showToast('页面加载失败，请重试', 'error');
+                } finally {
+                    this.hideLoading();
+                }
+            }
+
+            async submitComment(form) {
+                const url = form.dataset.url;
+                const formData = new FormData(form);
+
+                this.showLoading();
+
+                try {
+                    const response = await fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: formData
+                    });
+
+                    const data = await response.json();
+
+                    if (data.success) {
+                        // 更新评论列表
+                        const commentsList = document.getElementById('comments-list');
+                        if (commentsList) {
+                            commentsList.innerHTML = data.html;
+                        }
+                        // 清空表单
+                        form.reset();
+                        this.showToast(data.message, 'success');
+                    } else {
+                        this.showToast(data.message, 'error');
+                    }
+
+                } catch (error) {
+                    console.error('评论提交错误:', error);
+                    this.showToast('评论提交失败，请重试', 'error');
+                } finally {
+                    this.hideLoading();
+                }
+            }
+
+            showLoading() {
+                this.loadingEl.classList.remove('hidden');
+            }
+
+            hideLoading() {
+                this.loadingEl.classList.add('hidden');
+            }
+
+            showToast(message, type = 'info') {
+                const container = document.getElementById('toast-container');
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                toast.textContent = message;
+                container.appendChild(toast);
+
+                // 动画进入
+                setTimeout(() => toast.classList.add('show'), 10);
+
+                // 3秒后消失
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => toast.remove(), 300);
+                }, 3000);
+            }
+        }
+
+        // 初始化 SPA 路由
+        document.addEventListener('DOMContentLoaded', () => {
+            new SPARouter();
+        });
+    </script>
+</body>
+
+</html>

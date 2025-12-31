@@ -1,0 +1,96 @@
+{% extends 'blog/base.html' %}
+
+{% block title %}{{ post.title }} - 我的博客{% endblock %}
+
+{% block content %}
+<article class="post-detail">
+    <header class="post-header">
+        {% if post.category %}
+        <a href="{% url 'blog:category_posts' post.category.slug %}" class="post-category-tag">
+            {{ post.category.name }}
+        </a>
+        {% endif %}
+        <h1 class="post-title">{{ post.title }}</h1>
+        <div class="post-meta">
+            <span class="meta-author">👤 {{ post.author.username }}</span>
+            <span class="meta-date">📅 {{ post.created_at|date:"Y年m月d日 H:i" }}</span>
+            <span class="meta-views">👁 {{ post.views }} 次阅读</span>
+            <span class="meta-comments">💬 {{ comments.count }} 条评论</span>
+        </div>
+    </header>
+
+    {% if post.cover_image %}
+    <div class="post-cover-large" style="background-image: url('{{ post.cover_image }}')"></div>
+    {% endif %}
+
+    <div class="post-body">
+        {{ post.content|linebreaks }}
+    </div>
+
+    <footer class="post-footer">
+        <div class="post-tags">
+            <a href="{% url 'blog:post_list' %}" class="btn btn-secondary">&larr; 返回列表</a>
+        </div>
+    </footer>
+</article>
+
+<!-- 相关文章 -->
+{% if related_posts %}
+<section class="related-posts">
+    <h3>相关文章</h3>
+    <div class="related-grid">
+        {% for related in related_posts %}
+        <a href="{% url 'blog:post_detail' related.slug %}" class="related-item">
+            <span class="related-title">{{ related.title }}</span>
+            <span class="related-date">{{ related.created_at|date:"m月d日" }}</span>
+        </a>
+        {% endfor %}
+    </div>
+</section>
+{% endif %}
+
+<!-- 评论区 -->
+<section class="comments-section">
+    <h3>评论 ({{ comments.count }})</h3>
+
+    <!-- 评论表单 -->
+    <form action="{% url 'blog:add_comment' post.slug %}" method="post" class="comment-form">
+        {% csrf_token %}
+        <div class="form-row">
+            <div class="form-group">
+                <label for="author_name">昵称 *</label>
+                <input type="text" id="author_name" name="author_name" required placeholder="请输入昵称">
+            </div>
+            <div class="form-group">
+                <label for="author_email">邮箱</label>
+                <input type="email" id="author_email" name="author_email" placeholder="选填">
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="content">评论内容 *</label>
+            <textarea id="content" name="content" rows="4" required placeholder="写下你的评论..."></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">发表评论</button>
+    </form>
+
+    <!-- 评论列表 -->
+    <div class="comments-list">
+        {% for comment in comments %}
+        <div class="comment-item">
+            <div class="comment-avatar">{{ comment.author_name|slice:":1" }}</div>
+            <div class="comment-body">
+                <div class="comment-header">
+                    <span class="comment-author">{{ comment.author_name }}</span>
+                    <span class="comment-date">{{ comment.created_at|date:"Y-m-d H:i" }}</span>
+                </div>
+                <div class="comment-content">{{ comment.content|linebreaks }}</div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-comments">
+            <p>暂无评论，快来抢沙发吧！</p>
+        </div>
+        {% endfor %}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,77 @@
+<div class="page-header">
+    <h1>最新文章</h1>
+    <p class="subtitle">分享技术、生活与思考</p>
+</div>
+
+<div class="content-wrapper">
+    <div class="posts-section">
+        {% if posts %}
+        <div class="posts-grid">
+            {% for post in posts %}
+            <article class="post-card">
+                {% if post.cover_image %}
+                <div class="post-cover" style="background-image: url('{{ post.cover_image }}')"></div>
+                {% else %}
+                <div class="post-cover default-cover">
+                    <span class="cover-icon">📄</span>
+                </div>
+                {% endif %}
+                <div class="post-content">
+                    {% if post.category %}
+                    <a href="{% url 'blog:category_posts' post.category.slug %}" class="post-category spa-link">
+                        {{ post.category.name }}
+                    </a>
+                    {% endif %}
+                    <h2 class="post-title">
+                        <a href="{% url 'blog:post_detail' post.slug %}" class="spa-link">{{ post.title }}</a>
+                    </h2>
+                    <p class="post-excerpt">{{ post.excerpt|truncatechars:120 }}</p>
+                    <div class="post-meta">
+                        <span class="meta-author">👤 {{ post.author.username }}</span>
+                        <span class="meta-date">📅 {{ post.created_at|date:"Y年m月d日" }}</span>
+                        <span class="meta-views">👁 {{ post.views }}</span>
+                    </div>
+                </div>
+            </article>
+            {% endfor %}
+        </div>
+
+        {% if posts.has_other_pages %}
+        <div class="pagination">
+            {% if posts.has_previous %}
+            <a href="?page={{ posts.previous_page_number }}" class="page-link spa-link">&laquo; 上一页</a>
+            {% endif %}
+            <span class="page-info">第 {{ posts.number }} 页 / 共 {{ posts.paginator.num_pages }} 页</span>
+            {% if posts.has_next %}
+            <a href="?page={{ posts.next_page_number }}" class="page-link spa-link">下一页 &raquo;</a>
+            {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state">
+            <span class="empty-icon">📭</span>
+            <h3>暂无文章</h3>
+            <p>请先在管理后台创建文章</p>
+            <a href="/admin/blog/post/add/" class="btn btn-primary" target="_blank">创建文章</a>
+        </div>
+        {% endif %}
+    </div>
+
+    <aside class="sidebar">
+        <div class="widget">
+            <h3 class="widget-title">分类</h3>
+            <ul class="category-list">
+                {% for category in categories %}
+                <li>
+                    <a href="{% url 'blog:category_posts' category.slug %}" class="spa-link">
+                        {{ category.name }}
+                        <span class="count">{{ category.posts.count }}</span>
+                    </a>
+                </li>
+                {% empty %}
+                <li class="empty">暂无分类</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </aside>
+</div>
