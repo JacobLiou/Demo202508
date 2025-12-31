@@ -122,7 +122,7 @@ namespace OFDRCentralControlServer.Core
                         continue;
                     }
 
-                    Log.Debug("Resolve Request");
+                    //Log.Debug("Resolve Request");
                     Request? req = null;
                     var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
                     try
