@@ -1,0 +1,122 @@
+# 测试流程配置文件
+# 定义测试流程、步骤和参数
+
+test_flows:
+  # 光器件插损测试流程
+  insertion_loss_test:
+    name: "插入损耗测试"
+    description: "测量光器件的插入损耗"
+    enabled: true
+    test_class: "InsertionLossTest"
+    instruments_required:
+      - laser_source
+      - optical_power_meter
+    parameters:
+      wavelengths: [1310, 1490, 1550, 1577, 1610]
+      input_power: 0
+      measurement_count: 3
+      settling_time: 0.5
+    pass_criteria:
+      max_insertion_loss: 0.5
+      max_deviation: 0.1
+    steps:
+      - step_id: 1
+        name: "初始化仪器"
+        action: "initialize_instruments"
+        timeout: 10
+      - step_id: 2
+        name: "校准基准功率"
+        action: "calibrate_reference"
+        parameters:
+          wavelength: 1550
+      - step_id: 3
+        name: "多波长测试"
+        action: "measure_insertion_loss"
+        loop_over: "wavelengths"
+      - step_id: 4
+        name: "生成报告"
+        action: "generate_report"
+
+  # 回损测试流程
+  return_loss_test:
+    name: "回波损耗测试"
+    description: "测量光器件的回波损耗"
+    enabled: true
+    test_class: "ReturnLossTest"
+    instruments_required:
+      - laser_source
+      - optical_power_meter
+    parameters:
+      wavelengths: [1310, 1550, 1625]
+      input_power: 0
+      measurement_count: 5
+    pass_criteria:
+      min_return_loss: 45
+    steps:
+      - step_id: 1
+        name: "初始化仪器"
+        action: "initialize_instruments"
+      - step_id: 2
+        name: "回损测量"
+        action: "measure_return_loss"
+        loop_over: "wavelengths"
+      - step_id: 3
+        name: "生成报告"
+        action: "generate_report"
+
+  # 光谱测试流程
+  spectrum_analysis:
+    name: "光谱分析测试"
+    description: "分析光源或器件的光谱特性"
+    enabled: true
+    test_class: "SpectrumTest"
+    instruments_required:
+      - laser_source
+      - osa
+    parameters:
+      center_wavelength: 1550
+      span: 20
+      resolution: 0.02
+      sensitivity: "HIGH1"
+    pass_criteria:
+      min_smsr: 40
+      max_linewidth: 0.1
+    steps:
+      - step_id: 1
+        name: "配置OSA"
+        action: "configure_osa"
+      - step_id: 2
+        name: "扫描光谱"
+        action: "scan_spectrum"
+      - step_id: 3
+        name: "分析峰值"
+        action: "analyze_peaks"
+      - step_id: 4
+        name: "生成报告"
+        action: "generate_report"
+
+  # 综合测试流程
+  comprehensive_test:
+    name: "综合光学测试"
+    description: "包含插损、回损和光谱的综合测试"
+    enabled: true
+    test_class: "ComprehensiveTest"
+    instruments_required:
+      - laser_source
+      - optical_power_meter
+      - osa
+    sub_flows:
+      - insertion_loss_test
+      - return_loss_test
+      - spectrum_analysis
+    parameters:
+      generate_combined_report: true
+
+# 调度配置
+scheduler:
+  max_parallel_tests: 1
+  retry_on_failure: true
+  max_retries: 3
+  retry_delay: 5
+  auto_save_results: true
+  results_format: ["csv", "xlsx", "json"]

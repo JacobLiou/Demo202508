@@ -1,0 +1,71 @@
+# 仪器配置文件
+# 定义所有测试仪器的连接信息和参数
+
+instruments:
+  # 光功率计配置
+  optical_power_meter:
+    name: "Keysight 8163B"
+    driver: "optical_power_meter"
+    resource_string: "GPIB0::20::INSTR"
+    timeout: 5000
+    enabled: true
+    parameters:
+      wavelength: 1550
+      unit: "dBm"
+      averaging_time: 0.1
+
+  # 光谱分析仪配置
+  osa:
+    name: "Yokogawa AQ6370D"
+    driver: "osa"
+    resource_string: "GPIB0::1::INSTR"
+    timeout: 30000
+    enabled: true
+    parameters:
+      start_wavelength: 1520
+      stop_wavelength: 1580
+      resolution: 0.02
+      sensitivity: "HIGH1"
+
+  # 光开关配置
+  optical_switch:
+    name: "JDS Uniphase SB Series"
+    driver: "optical_switch"
+    resource_string: "GPIB0::10::INSTR"
+    timeout: 5000
+    enabled: true
+    parameters:
+      channels: 8
+      switch_time: 0.1
+
+  # 激光光源配置
+  laser_source:
+    name: "Santec TSL-570"
+    driver: "laser_source"
+    resource_string: "GPIB0::5::INSTR"
+    timeout: 5000
+    enabled: true
+    parameters:
+      wavelength_range: [1500, 1630]
+      power_range: [-10, 10]
+      default_power: 0
+      default_wavelength: 1550
+
+  # 可调谐激光器配置
+  tunable_laser:
+    name: "Keysight 81606A"
+    driver: "laser_source"
+    resource_string: "GPIB0::6::INSTR"
+    timeout: 5000
+    enabled: false
+    parameters:
+      wavelength_range: [1520, 1620]
+      power_range: [-6, 6]
+      default_power: 0
+      default_wavelength: 1550
+
+# VISA资源管理器配置
+visa_settings:
+  backend: "@py"  # 使用pyvisa-py后端，或留空使用NI-VISA
+  timeout_default: 5000
+  query_delay: 0.1

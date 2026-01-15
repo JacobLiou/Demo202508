@@ -1,0 +1,138 @@
+# 产品配置文件
+# 定义被测产品的信息和测试规格
+
+products:
+  # 光纤跳线产品
+  fiber_patch_cable:
+    name: "单模光纤跳线"
+    category: "passive_component"
+    model_prefix: "FPC-SM"
+    specifications:
+      connector_type: ["LC", "SC", "FC"]
+      fiber_type: "G.652D"
+      core_diameter: 9
+      cladding_diameter: 125
+    test_requirements:
+      - insertion_loss_test
+      - return_loss_test
+    limits:
+      insertion_loss:
+        max: 0.3
+        unit: "dB"
+      return_loss:
+        min: 50
+        unit: "dB"
+
+  # 光分路器产品
+  plc_splitter:
+    name: "PLC光分路器"
+    category: "passive_component"
+    model_prefix: "PLC"
+    variants:
+      1x2:
+        insertion_loss_max: 3.8
+      1x4:
+        insertion_loss_max: 7.2
+      1x8:
+        insertion_loss_max: 10.5
+      1x16:
+        insertion_loss_max: 13.5
+      1x32:
+        insertion_loss_max: 16.5
+    test_requirements:
+      - insertion_loss_test
+      - return_loss_test
+    limits:
+      uniformity:
+        max: 1.5
+        unit: "dB"
+      return_loss:
+        min: 55
+        unit: "dB"
+
+  # WDM器件
+  cwdm_mux:
+    name: "CWDM复用器"
+    category: "wdm_component"
+    model_prefix: "CWDM"
+    specifications:
+      channels: [1270, 1290, 1310, 1330, 1350, 1370, 1390, 1410, 1430, 1450, 1470, 1490, 1510, 1530, 1550, 1570, 1590, 1610]
+      channel_spacing: 20
+      passband_width: 13
+    test_requirements:
+      - insertion_loss_test
+      - spectrum_analysis
+    limits:
+      insertion_loss:
+        max: 1.5
+        unit: "dB"
+      isolation:
+        min: 30
+        unit: "dB"
+      passband_ripple:
+        max: 0.5
+        unit: "dB"
+
+  # DWDM器件
+  dwdm_mux:
+    name: "DWDM复用器"
+    category: "wdm_component"
+    model_prefix: "DWDM"
+    specifications:
+      channel_spacing: 100  # GHz
+      itu_grid: "C-band"
+    test_requirements:
+      - insertion_loss_test
+      - spectrum_analysis
+    limits:
+      insertion_loss:
+        max: 3.5
+        unit: "dB"
+      isolation:
+        min: 25
+        unit: "dB"
+      passband_width_0.5dB:
+        min: 0.35
+        unit: "nm"
+
+  # 光衰减器
+  voa:
+    name: "可调光衰减器"
+    category: "active_component"
+    model_prefix: "VOA"
+    specifications:
+      attenuation_range: [0, 30]
+      resolution: 0.01
+    test_requirements:
+      - insertion_loss_test
+    limits:
+      insertion_loss_min:
+        max: 0.8
+        unit: "dB"
+      attenuation_accuracy:
+        max: 0.2
+        unit: "dB"
+
+# 测试站点配置
+test_stations:
+  station_1:
+    name: "光无源器件测试站"
+    location: "Lab-A"
+    supported_products:
+      - fiber_patch_cable
+      - plc_splitter
+    instruments:
+      - optical_power_meter
+      - laser_source
+
+  station_2:
+    name: "WDM器件测试站"
+    location: "Lab-B"
+    supported_products:
+      - cwdm_mux
+      - dwdm_mux
+    instruments:
+      - optical_power_meter
+      - laser_source
+      - osa
+      - optical_switch
