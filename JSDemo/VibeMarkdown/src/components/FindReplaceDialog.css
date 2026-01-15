@@ -1,0 +1,156 @@
+.find-replace-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.find-replace-dialog {
+  min-width: 400px;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.find-replace-dialog.light {
+  background-color: #ffffff;
+  border: 1px solid #e0e0e0;
+}
+
+.find-replace-dialog.dark {
+  background-color: #2d2d30;
+  border: 1px solid #3e3e42;
+}
+
+.find-replace-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid;
+  font-weight: 600;
+}
+
+.find-replace-dialog.light .find-replace-header {
+  border-bottom-color: #e0e0e0;
+}
+
+.find-replace-dialog.dark .find-replace-header {
+  border-bottom-color: #3e3e42;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  line-height: 1;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.close-btn:hover {
+  opacity: 1;
+}
+
+.find-replace-content {
+  padding: 16px;
+}
+
+.input-group {
+  margin-bottom: 12px;
+}
+
+.input-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.input-group input[type="text"] {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.find-replace-dialog.light .input-group input[type="text"] {
+  background-color: #ffffff;
+  border-color: #ccc;
+  color: #333;
+}
+
+.find-replace-dialog.dark .input-group input[type="text"] {
+  background-color: #1e1e1e;
+  border-color: #555;
+  color: #d4d4d4;
+}
+
+.options-group {
+  margin-bottom: 12px;
+}
+
+.options-group label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.match-info {
+  margin-bottom: 12px;
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+.button-group {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.button-group button {
+  padding: 6px 12px;
+  border: 1px solid;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+}
+
+.find-replace-dialog.light .button-group button {
+  background-color: #ffffff;
+  border-color: #ccc;
+  color: #333;
+}
+
+.find-replace-dialog.light .button-group button:hover:not(:disabled) {
+  background-color: #f0f0f0;
+}
+
+.find-replace-dialog.dark .button-group button {
+  background-color: #1e1e1e;
+  border-color: #555;
+  color: #d4d4d4;
+}
+
+.find-replace-dialog.dark .button-group button:hover:not(:disabled) {
+  background-color: #37373d;
+}
+
+.button-group button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+

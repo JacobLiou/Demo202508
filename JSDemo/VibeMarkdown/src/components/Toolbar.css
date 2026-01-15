@@ -1,0 +1,70 @@
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 16px;
+  border-bottom: 1px solid;
+  min-height: 40px;
+  flex-shrink: 0;
+}
+
+.toolbar.light {
+  background-color: #f5f5f5;
+  border-bottom-color: #e0e0e0;
+}
+
+.toolbar.dark {
+  background-color: #2d2d2d;
+  border-bottom-color: #404040;
+}
+
+.toolbar-section {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.toolbar button {
+  padding: 6px 12px;
+  border: 1px solid;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s;
+  background: transparent;
+}
+
+.toolbar.light button {
+  border-color: #ccc;
+  color: #333;
+}
+
+.toolbar.light button:hover:not(:disabled) {
+  background-color: #e0e0e0;
+}
+
+.toolbar.light button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar.dark button {
+  border-color: #555;
+  color: #e0e0e0;
+}
+
+.toolbar.dark button:hover:not(:disabled) {
+  background-color: #404040;
+}
+
+.toolbar.dark button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar button.active {
+  background-color: #007acc;
+  color: white;
+  border-color: #007acc;
+}
+

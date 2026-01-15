@@ -1,0 +1,36 @@
+{
+  "file": {
+    "new": "New",
+    "open": "Open",
+    "save": "Save",
+    "saveAs": "Save As",
+    "close": "Close"
+  },
+  "edit": {
+    "undo": "Undo",
+    "redo": "Redo",
+    "find": "Find",
+    "replace": "Replace",
+    "gotoLine": "Go to Line",
+    "insertDateTime": "Insert Date & Time"
+  },
+  "view": {
+    "alwaysOnTop": "Always On Top",
+    "snapLeft": "Snap to Left",
+    "snapRight": "Snap to Right",
+    "unsnap": "Unsnap",
+    "darkMode": "Dark Mode"
+  },
+  "language": {
+    "english": "English",
+    "chinese": "中文"
+  },
+  "editor": {
+    "untitled": "Untitled",
+    "findPlaceholder": "Find...",
+    "replacePlaceholder": "Replace with...",
+    "gotoLinePlaceholder": "Go to line number...",
+    "toc": "Table of Contents"
+  }
+}
+

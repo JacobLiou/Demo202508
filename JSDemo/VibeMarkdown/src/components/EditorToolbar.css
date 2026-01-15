@@ -1,0 +1,70 @@
+.editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  border-bottom: 1px solid;
+  min-height: 32px;
+  flex-shrink: 0;
+}
+
+.editor-toolbar.light {
+  background-color: #fafafa;
+  border-bottom-color: #e0e0e0;
+}
+
+.editor-toolbar.dark {
+  background-color: #252526;
+  border-bottom-color: #3e3e42;
+}
+
+.editor-toolbar-section {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.editor-toolbar button {
+  padding: 4px 10px;
+  border: 1px solid;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.2s;
+  background: transparent;
+}
+
+.editor-toolbar.light button {
+  border-color: #ccc;
+  color: #333;
+}
+
+.editor-toolbar.light button:hover:not(:disabled) {
+  background-color: #e8e8e8;
+}
+
+.editor-toolbar.light button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.editor-toolbar.dark button {
+  border-color: #555;
+  color: #cccccc;
+}
+
+.editor-toolbar.dark button:hover:not(:disabled) {
+  background-color: #37373d;
+}
+
+.editor-toolbar.dark button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.editor-toolbar button.active {
+  background-color: #007acc;
+  color: white;
+  border-color: #007acc;
+}
+

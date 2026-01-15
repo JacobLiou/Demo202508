@@ -1,0 +1,36 @@
+{
+  "file": {
+    "new": "新建",
+    "open": "打开",
+    "save": "保存",
+    "saveAs": "另存为",
+    "close": "关闭"
+  },
+  "edit": {
+    "undo": "撤销",
+    "redo": "重做",
+    "find": "查找",
+    "replace": "替换",
+    "gotoLine": "跳转到行",
+    "insertDateTime": "插入日期时间"
+  },
+  "view": {
+    "alwaysOnTop": "置顶",
+    "snapLeft": "靠左吸附",
+    "snapRight": "靠右吸附",
+    "unsnap": "取消吸附",
+    "darkMode": "暗色模式"
+  },
+  "language": {
+    "english": "English",
+    "chinese": "中文"
+  },
+  "editor": {
+    "untitled": "未命名",
+    "findPlaceholder": "查找...",
+    "replacePlaceholder": "替换为...",
+    "gotoLinePlaceholder": "跳转到行号...",
+    "toc": "目录"
+  }
+}
+

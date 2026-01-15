@@ -1,0 +1,262 @@
+.markdown-preview {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.markdown-preview.light {
+  background-color: #ffffff;
+  color: #333333;
+}
+
+.markdown-preview.dark {
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+
+.toc {
+  padding: 16px;
+  border-bottom: 1px solid;
+  max-height: 200px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.toc.light {
+  background-color: #f9f9f9;
+  border-bottom-color: #e0e0e0;
+}
+
+.toc.dark {
+  background-color: #252526;
+  border-bottom-color: #3e3e42;
+}
+
+.toc-item {
+  margin: 4px 0;
+  font-size: 13px;
+}
+
+.toc-item a {
+  text-decoration: none;
+  color: inherit;
+  transition: color 0.2s;
+}
+
+.toc.light .toc-item a {
+  color: #0066cc;
+}
+
+.toc.light .toc-item a:hover {
+  color: #0052a3;
+}
+
+.toc.dark .toc-item a {
+  color: #4fc3f7;
+}
+
+.toc.dark .toc-item a:hover {
+  color: #81d4fa;
+}
+
+.markdown-content {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+  line-height: 1.8;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin-top: 24px;
+  margin-bottom: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.markdown-content h1 {
+  font-size: 2em;
+  border-bottom: 1px solid;
+  padding-bottom: 8px;
+}
+
+.markdown-content h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid;
+  padding-bottom: 8px;
+}
+
+.markdown-content h3 {
+  font-size: 1.25em;
+}
+
+.markdown-content h4 {
+  font-size: 1em;
+}
+
+.markdown-content h5 {
+  font-size: 0.875em;
+}
+
+.markdown-content h6 {
+  font-size: 0.85em;
+}
+
+.markdown-content.light h1,
+.markdown-content.light h2 {
+  border-bottom-color: #eaecef;
+}
+
+.markdown-content.dark h1,
+.markdown-content.dark h2 {
+  border-bottom-color: #3e3e42;
+}
+
+.markdown-content p {
+  margin-bottom: 16px;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin-bottom: 16px;
+  padding-left: 30px;
+}
+
+.markdown-content li {
+  margin-bottom: 8px;
+}
+
+.markdown-content code {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 0.9em;
+}
+
+.markdown-content.light code {
+  background-color: #f6f8fa;
+  color: #e83e8c;
+}
+
+.markdown-content.dark code {
+  background-color: #2d2d2d;
+  color: #ce9178;
+}
+
+.markdown-content pre {
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+  line-height: 1.45;
+}
+
+.markdown-content.light pre {
+  background-color: #f6f8fa;
+  border: 1px solid #e1e4e8;
+}
+
+.markdown-content.dark pre {
+  background-color: #2d2d2d;
+  border: 1px solid #3e3e42;
+}
+
+.markdown-content pre code {
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 0.85em;
+}
+
+.markdown-content blockquote {
+  padding: 0 16px;
+  margin: 0 0 16px 0;
+  border-left: 4px solid;
+  border-radius: 0;
+}
+
+.markdown-content.light blockquote {
+  border-left-color: #dfe2e5;
+  color: #6a737d;
+}
+
+.markdown-content.dark blockquote {
+  border-left-color: #3e3e42;
+  color: #8c8c8c;
+}
+
+.markdown-content table {
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  width: 100%;
+}
+
+.markdown-content th,
+.markdown-content td {
+  padding: 8px 12px;
+  border: 1px solid;
+}
+
+.markdown-content.light th,
+.markdown-content.light td {
+  border-color: #dfe2e5;
+}
+
+.markdown-content.dark th,
+.markdown-content.dark td {
+  border-color: #3e3e42;
+}
+
+.markdown-content.light th {
+  background-color: #f6f8fa;
+}
+
+.markdown-content.dark th {
+  background-color: #2d2d2d;
+}
+
+.markdown-content a {
+  color: #0066cc;
+  text-decoration: none;
+}
+
+.markdown-content.light a {
+  color: #0366d6;
+}
+
+.markdown-content.light a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content.dark a {
+  color: #4fc3f7;
+}
+
+.markdown-content.dark a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content img {
+  max-width: 100%;
+  height: auto;
+  margin-bottom: 16px;
+}
+
+.markdown-content hr {
+  height: 1px;
+  margin: 24px 0;
+  border: none;
+}
+
+.markdown-content.light hr {
+  background-color: #eaecef;
+}
+
+.markdown-content.dark hr {
+  background-color: #3e3e42;
+}
+
