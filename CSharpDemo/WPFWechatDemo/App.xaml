@@ -1,0 +1,23 @@
+<Application x:Class="WPFWechatDemo.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:WPFWechatDemo"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Styles/WechatStyles.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+            
+            <!-- 转换器实例 -->
+            <local:BoolToAlignmentConverter x:Key="BoolToAlignmentConverter"/>
+            <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <local:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
+            <local:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
+            <local:IntToVisibilityConverter x:Key="IntToVisibilityConverter"/>
+            <local:ContactToIsSelectedConverter x:Key="ContactToIsSelectedConverter"/>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>
+
+
