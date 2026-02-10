@@ -1,8 +1,10 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.22709.0
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36414.22 d17.14
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Scribble", "Scribble.vcxproj", "{7885CDC4-D221-488C-9B58-992079831A50}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "MFCApplication1", "..\MFCApplication1\MFCApplication1.vcxproj", "{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,16 +26,23 @@ Global
 		{7885CDC4-D221-488C-9B58-992079831A50}.Release|Win32.Build.0 = Release|Win32
 		{7885CDC4-D221-488C-9B58-992079831A50}.Release|x64.ActiveCfg = Release|x64
 		{7885CDC4-D221-488C-9B58-992079831A50}.Release|x64.Build.0 = Release|x64
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Debug|Itanium.ActiveCfg = Debug|x64
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Debug|Itanium.Build.0 = Debug|x64
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Debug|Win32.ActiveCfg = Debug|Win32
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Debug|Win32.Build.0 = Debug|Win32
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Debug|x64.ActiveCfg = Debug|x64
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Debug|x64.Build.0 = Debug|x64
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Release|Itanium.ActiveCfg = Release|x64
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Release|Itanium.Build.0 = Release|x64
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Release|Win32.ActiveCfg = Release|Win32
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Release|Win32.Build.0 = Release|Win32
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Release|x64.ActiveCfg = Release|x64
+		{980EBF83-8B46-F90E-22E2-1EDF850C5CA0}.Release|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection
-	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 2
-		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
-		SccTeamFoundationServer = http://vstfdevdiv:8080/devdiv
-		SccLocalPath0 = .
-		SccProjectUniqueName1 = Scribble.vcxproj
-		SccLocalPath1 = .
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {55D99F29-0DE9-46F1-B5C4-3032F07DD74B}
 	EndGlobalSection
 EndGlobal
