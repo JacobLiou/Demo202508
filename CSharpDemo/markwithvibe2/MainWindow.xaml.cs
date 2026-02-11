@@ -153,7 +153,11 @@ public partial class MainWindow : Window
 
     private void UpdateLineNumbers()
     {
-        var lineCount = Editor.LineCount;
+        // 计算行数（基于换行符）
+        var text = Editor.Text ?? string.Empty;
+        var lineCount = text.Split('\n').Length;
+        if (lineCount == 0) lineCount = 1;
+        
         var lines = new System.Text.StringBuilder();
         for (int i = 1; i <= lineCount; i++)
         {

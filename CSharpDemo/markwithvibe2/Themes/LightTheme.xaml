@@ -10,6 +10,7 @@
     <SolidColorBrush x:Key="ToolbarBackgroundBrush" Color="#eaeaea"/>
     <SolidColorBrush x:Key="TabBackgroundBrush" Color="#f3f3f3"/>
     <SolidColorBrush x:Key="StatusBarBackgroundBrush" Color="#007acc"/>
+    <SolidColorBrush x:Key="StatusBarForegroundBrush" Color="#ffffff"/>
     <SolidColorBrush x:Key="SplitterBrush" Color="#e0e0e0"/>
     <SolidColorBrush x:Key="BorderBrush" Color="#d4d4d4"/>
     <SolidColorBrush x:Key="LineNumberBackgroundBrush" Color="#f5f5f5"/>

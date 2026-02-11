@@ -228,41 +228,44 @@
                     </Border>
                     
                     <!-- 编辑器 -->
-                    <Grid Grid.Row="1">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto"/>
-                            <ColumnDefinition Width="*"/>
-                        </Grid.ColumnDefinitions>
+                    <ScrollViewer Grid.Row="1" x:Name="EditorScrollViewer"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Auto">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
                         
-                        <!-- 行号 -->
-                        <Border Grid.Column="0" Background="{DynamicResource LineNumberBackgroundBrush}" 
-                                Padding="8,0">
-                            <TextBlock x:Name="LineNumbers" 
-                                     FontFamily="Cascadia Code, Consolas, Courier New"
-                                     FontSize="13" 
-                                     Foreground="{DynamicResource LineNumberForegroundBrush}"
-                                     TextAlignment="Right"
-                                     Padding="0,4"/>
-                        </Border>
+                            <!-- 行号 -->
+                            <Border Grid.Column="0" Background="{DynamicResource LineNumberBackgroundBrush}" 
+                                    Padding="12,4,8,4">
+                                <TextBlock x:Name="LineNumbers" 
+                                         FontFamily="Cascadia Code, Consolas, Courier New"
+                                         FontSize="14" 
+                                         Foreground="{DynamicResource LineNumberForegroundBrush}"
+                                         TextAlignment="Right"/>
+                            </Border>
                         
-                        <!-- 文本编辑器 -->
-                        <TextBox Grid.Column="1" x:Name="Editor"
-                               Text="{Binding MarkdownContent, UpdateSourceTrigger=PropertyChanged}"
-                               FontFamily="Cascadia Code, Consolas, Courier New"
-                               FontSize="14"
-                               AcceptsReturn="True"
-                               AcceptsTab="True"
-                               TextWrapping="Wrap"
-                               VerticalScrollBarVisibility="Auto"
-                               HorizontalScrollBarVisibility="Disabled"
-                               Background="{DynamicResource EditorBackgroundBrush}"
-                               Foreground="{DynamicResource EditorForegroundBrush}"
-                               CaretBrush="{DynamicResource AccentBrush}"
-                               BorderThickness="0"
-                               Padding="8,4"
-                               TextChanged="Editor_TextChanged"
-                               SelectionChanged="Editor_SelectionChanged"/>
-                    </Grid>
+                            <!-- 文本编辑器 -->
+                            <TextBox Grid.Column="1" x:Name="Editor"
+                                   Text="{Binding MarkdownContent, UpdateSourceTrigger=PropertyChanged}"
+                                   FontFamily="Cascadia Code, Consolas, Courier New"
+                                   FontSize="14"
+                                   AcceptsReturn="True"
+                                   AcceptsTab="True"
+                                   TextWrapping="NoWrap"
+                                   VerticalScrollBarVisibility="Disabled"
+                                   HorizontalScrollBarVisibility="Disabled"
+                                   Background="{DynamicResource EditorBackgroundBrush}"
+                                   Foreground="{DynamicResource EditorForegroundBrush}"
+                                   CaretBrush="{DynamicResource AccentBrush}"
+                                   BorderThickness="0"
+                                   Padding="8,0,8,4"
+                                   TextChanged="Editor_TextChanged"
+                                   SelectionChanged="Editor_SelectionChanged"/>
+                        </Grid>
+                    </ScrollViewer>
                 </Grid>
             </Border>
             
@@ -312,21 +315,21 @@
                 </Grid.ColumnDefinitions>
                 
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" 
-                         Foreground="{DynamicResource SecondaryForegroundBrush}"
+                         Foreground="{DynamicResource StatusBarForegroundBrush}"
                          VerticalAlignment="Center"/>
                 
                 <TextBlock Grid.Column="1" 
                          Text="{Binding CursorPosition, StringFormat='行 {0}'}" 
-                         Foreground="{DynamicResource SecondaryForegroundBrush}"
+                         Foreground="{DynamicResource StatusBarForegroundBrush}"
                          Margin="16,0" VerticalAlignment="Center"/>
                 
                 <TextBlock Grid.Column="2" 
                          Text="{Binding WordCount, StringFormat='字数: {0}'}" 
-                         Foreground="{DynamicResource SecondaryForegroundBrush}"
+                         Foreground="{DynamicResource StatusBarForegroundBrush}"
                          Margin="16,0" VerticalAlignment="Center"/>
                 
                 <TextBlock Grid.Column="3" Text="UTF-8" 
-                         Foreground="{DynamicResource SecondaryForegroundBrush}"
+                         Foreground="{DynamicResource StatusBarForegroundBrush}"
                          VerticalAlignment="Center"/>
             </Grid>
         </Border>
