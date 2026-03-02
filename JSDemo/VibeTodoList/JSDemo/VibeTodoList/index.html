@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TodoList - 待办事项</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #e8f4fc 0%, #f0f7fb 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(100, 149, 237, 0.15);
+            padding: 30px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #4a90d9;
+            font-size: 28px;
+            margin-bottom: 25px;
+            font-weight: 600;
+        }
+
+        /* 输入区域 */
+        .input-section {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+
+        .task-input {
+            flex: 1;
+            padding: 14px 18px;
+            border: 2px solid #e1ecf4;
+            border-radius: 12px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .task-input:focus {
+            border-color: #6cb2eb;
+            box-shadow: 0 0 0 3px rgba(108, 178, 235, 0.2);
+        }
+
+        .task-input::placeholder {
+            color: #a0c4e8;
+        }
+
+        .add-btn {
+            padding: 14px 24px;
+            background: linear-gradient(135deg, #6cb2eb 0%, #4a90d9 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            white-space: nowrap;
+        }
+
+        .add-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(74, 144, 217, 0.4);
+        }
+
+        .add-btn:active {
+            transform: translateY(0);
+        }
+
+        /* 优先级选择器 */
+        .priority-select {
+            padding: 14px 12px;
+            border: 2px solid #e1ecf4;
+            border-radius: 12px;
+            font-size: 14px;
+            outline: none;
+            background: white;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .priority-select:focus {
+            border-color: #6cb2eb;
+        }
+
+        /* 统计区域 */
+        .stats-section {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            padding: 16px;
+            background: #f5fafd;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            text-align: center;
+        }
+
+        .stat-number {
+            font-size: 28px;
+            font-weight: 700;
+            color: #4a90d9;
+        }
+
+        .stat-number.completed {
+            color: #7bc47f;
+        }
+
+        .stat-label {
+            font-size: 14px;
+            color: #8ab4d4;
+            margin-top: 4px;
+        }
+
+        .clear-completed-btn {
+            padding: 8px 16px;
+            background: #fff;
+            color: #7bc47f;
+            border: 1px solid #c5e6c7;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .clear-completed-btn:hover {
+            background: #f0faf0;
+            border-color: #7bc47f;
+            color: #5ba85e;
+        }
+
+        .clear-completed-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .clear-all-btn {
+            padding: 8px 16px;
+            background: #fff;
+            color: #e57373;
+            border: 1px solid #f5c6c6;
+            border-radius: 8px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .clear-all-btn:hover {
+            background: #fef2f2;
+            border-color: #e57373;
+            color: #d32f2f;
+        }
+
+        .clear-all-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 任务列表 */
+        .task-list {
+            list-style: none;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 14px 16px;
+            background: #fafcfe;
+            border-radius: 10px;
+            margin-bottom: 10px;
+            transition: background-color 0.2s, transform 0.2s;
+            border: 1px solid #e8f2f9;
+        }
+
+        .task-item:hover {
+            background: #f0f7fc;
+            transform: translateX(4px);
+        }
+
+        .task-item.completed {
+            background: #f8faf8;
+            border-color: #e2ede2;
+        }
+
+        /* 优先级颜色 */
+        .task-item.priority-high {
+            border-left: 4px solid #e57373;
+        }
+
+        .task-item.priority-medium {
+            border-left: 4px solid #ffb74d;
+        }
+
+        .task-item.priority-low {
+            border-left: 4px solid #81c784;
+        }
+
+        .priority-badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 500;
+            margin-right: 8px;
+            flex-shrink: 0;
+        }
+
+        .priority-badge.high {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .priority-badge.medium {
+            background: #fff3e0;
+            color: #e65100;
+        }
+
+        .priority-badge.low {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        /* 复选框样式 */
+        .task-checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 22px;
+            height: 22px;
+            border: 2px solid #c5dced;
+            border-radius: 6px;
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.2s;
+            position: relative;
+        }
+
+        .task-checkbox:checked {
+            background: linear-gradient(135deg, #7bc47f 0%, #5ba85e 100%);
+            border-color: #5ba85e;
+        }
+
+        .task-checkbox:checked::after {
+            content: '✓';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .task-checkbox:hover {
+            border-color: #6cb2eb;
+        }
+
+        /* 任务文本 */
+        .task-text {
+            flex: 1;
+            margin: 0 14px;
+            font-size: 16px;
+            color: #3a5f7c;
+            word-break: break-word;
+            line-height: 1.4;
+        }
+
+        .task-item.completed .task-text {
+            text-decoration: line-through;
+            color: #a8c4d4;
+        }
+
+        /* 操作按钮 */
+        .task-actions {
+            display: flex;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+
+        .edit-btn {
+            padding: 8px 12px;
+            background: #fff;
+            color: #6cb2eb;
+            border: 1px solid #c5dced;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .edit-btn:hover {
+            background: #f0f7fc;
+            border-color: #6cb2eb;
+            color: #4a90d9;
+        }
+
+        .delete-btn {
+            padding: 8px 12px;
+            background: #fff;
+            color: #e57373;
+            border: 1px solid #f5c6c6;
+            border-radius: 8px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .delete-btn:hover {
+            background: #fef2f2;
+            border-color: #e57373;
+            color: #d32f2f;
+        }
+
+        /* 空状态 */
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #a0c4e8;
+        }
+
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+        }
+
+        .empty-state-text {
+            font-size: 16px;
+        }
+
+        /* 确认对话框 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s, visibility 0.3s;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: white;
+            padding: 28px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            max-width: 340px;
+            width: 90%;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s;
+        }
+
+        .modal-overlay.active .modal {
+            transform: scale(1);
+        }
+
+        .modal-title {
+            font-size: 18px;
+            color: #3a5f7c;
+            margin-bottom: 20px;
+            line-height: 1.5;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+        }
+
+        .modal-btn {
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: none;
+        }
+
+        .modal-btn.cancel {
+            background: #f0f4f8;
+            color: #5a7a8a;
+        }
+
+        .modal-btn.cancel:hover {
+            background: #e4ebf1;
+        }
+
+        .modal-btn.confirm {
+            background: linear-gradient(135deg, #e57373 0%, #d32f2f 100%);
+            color: white;
+        }
+
+        .modal-btn.confirm:hover {
+            box-shadow: 0 4px 12px rgba(211, 47, 47, 0.4);
+        }
+
+        .modal-btn.save {
+            background: linear-gradient(135deg, #6cb2eb 0%, #4a90d9 100%);
+            color: white;
+        }
+
+        .modal-btn.save:hover {
+            box-shadow: 0 4px 12px rgba(74, 144, 217, 0.4);
+        }
+
+        /* 编辑对话框 */
+        .edit-modal {
+            max-width: 400px;
+        }
+
+        .edit-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e1ecf4;
+            border-radius: 10px;
+            font-size: 16px;
+            outline: none;
+            margin-bottom: 12px;
+            transition: border-color 0.3s;
+        }
+
+        .edit-input:focus {
+            border-color: #6cb2eb;
+        }
+
+        .edit-priority {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 480px) {
+            body {
+                padding: 12px;
+            }
+
+            .container {
+                padding: 20px 16px;
+                border-radius: 12px;
+            }
+
+            h1 {
+                font-size: 24px;
+                margin-bottom: 20px;
+            }
+
+            .input-section {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .add-btn {
+                width: 100%;
+            }
+
+            .stats-section {
+                gap: 20px;
+                padding: 14px;
+            }
+
+            .stat-number {
+                font-size: 24px;
+            }
+
+            .task-item {
+                padding: 12px;
+            }
+
+            .task-text {
+                font-size: 15px;
+                margin: 0 10px;
+            }
+
+            .delete-btn, .edit-btn {
+                padding: 6px 8px;
+                font-size: 12px;
+            }
+
+            .priority-select {
+                width: 100%;
+                padding: 12px;
+            }
+
+            .priority-badge {
+                font-size: 10px;
+                padding: 2px 6px;
+            }
+
+            .stats-section {
+                flex-wrap: wrap;
+            }
+
+            .clear-completed-btn, .clear-all-btn {
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+        }
+
+        /* 字符计数提示 */
+        .char-count {
+            text-align: right;
+            font-size: 12px;
+            color: #a0c4e8;
+            margin-top: 6px;
+            margin-bottom: 10px;
+        }
+
+        .char-count.warning {
+            color: #e57373;
+        }
+
+        .char-count.valid {
+            color: #7bc47f;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌟 我的待办清单</h1>
+        
+        <div class="input-section">
+            <input 
+                type="text" 
+                class="task-input" 
+                id="taskInput" 
+                placeholder="今天要做什么？" 
+                maxlength="50"
+                autocomplete="off"
+            >
+            <select class="priority-select" id="prioritySelect">
+                <option value="low">低优先级</option>
+                <option value="medium" selected>中优先级</option>
+                <option value="high">高优先级</option>
+            </select>
+            <button class="add-btn" id="addBtn">添加任务</button>
+        </div>
+        <div class="char-count" id="charCount">0 / 50</div>
+        
+        <div class="stats-section">
+            <div class="stat-item">
+                <div class="stat-number" id="pendingCount">0</div>
+                <div class="stat-label">未完成</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number completed" id="completedCount">0</div>
+                <div class="stat-label">已完成</div>
+            </div>
+            <button class="clear-completed-btn" id="clearCompletedBtn">清空已完成</button>
+            <button class="clear-all-btn" id="clearAllBtn">全部清空</button>
+        </div>
+        
+        <ul class="task-list" id="taskList"></ul>
+    </div>
+
+    <!-- 确认删除对话框 -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <div class="modal-title" id="modalTitle">确定要删除这个任务吗？</div>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" id="cancelDelete">取消</button>
+                <button class="modal-btn confirm" id="confirmDelete">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 编辑任务对话框 -->
+    <div class="modal-overlay" id="editModalOverlay">
+        <div class="modal edit-modal">
+            <div class="modal-title">编辑任务</div>
+            <input type="text" class="edit-input" id="editInput" maxlength="50" placeholder="任务内容">
+            <select class="priority-select edit-priority" id="editPrioritySelect">
+                <option value="low">低优先级</option>
+                <option value="medium">中优先级</option>
+                <option value="high">高优先级</option>
+            </select>
+            <div class="modal-buttons">
+                <button class="modal-btn cancel" id="cancelEdit">取消</button>
+                <button class="modal-btn save" id="saveEdit">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM 元素
+        const taskInput = document.getElementById('taskInput');
+        const addBtn = document.getElementById('addBtn');
+        const taskList = document.getElementById('taskList');
+        const pendingCount = document.getElementById('pendingCount');
+        const completedCount = document.getElementById('completedCount');
+        const charCount = document.getElementById('charCount');
+        const modalOverlay = document.getElementById('modalOverlay');
+        const modalTitle = document.getElementById('modalTitle');
+        const cancelDelete = document.getElementById('cancelDelete');
+        const confirmDelete = document.getElementById('confirmDelete');
+        const clearCompletedBtn = document.getElementById('clearCompletedBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const prioritySelect = document.getElementById('prioritySelect');
+        
+        // 编辑对话框元素
+        const editModalOverlay = document.getElementById('editModalOverlay');
+        const editInput = document.getElementById('editInput');
+        const editPrioritySelect = document.getElementById('editPrioritySelect');
+        const cancelEdit = document.getElementById('cancelEdit');
+        const saveEdit = document.getElementById('saveEdit');
+
+        // 存储键名
+        const STORAGE_KEY = 'todolist_tasks';
+
+        // 待删除任务ID
+        let taskToDelete = null;
+        // 清空已完成模式
+        let clearCompletedMode = false;
+        // 清空全部模式
+        let clearAllMode = false;
+        // 编辑中的任务ID
+        let taskToEdit = null;
+        
+        // 优先级文本映射
+        const priorityLabels = {
+            high: '高',
+            medium: '中',
+            low: '低'
+        };
+
+        // 从本地存储加载任务
+        function loadTasks() {
+            try {
+                const data = localStorage.getItem(STORAGE_KEY);
+                return data ? JSON.parse(data) : [];
+            } catch (e) {
+                console.error('加载任务失败:', e);
+                return [];
+            }
+        }
+
+        // 保存任务到本地存储
+        function saveTasks(tasks) {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
+            } catch (e) {
+                console.error('保存任务失败:', e);
+            }
+        }
+
+        // 生成唯一ID
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        // 更新统计数据
+        function updateStats() {
+            const tasks = loadTasks();
+            const completed = tasks.filter(t => t.completed).length;
+            const pending = tasks.length - completed;
+            
+            pendingCount.textContent = pending;
+            completedCount.textContent = completed;
+            
+            // 更新清空按钮状态
+            clearCompletedBtn.disabled = completed === 0;
+            clearAllBtn.disabled = tasks.length === 0;
+        }
+
+        // 渲染任务列表
+        function renderTasks() {
+            const tasks = loadTasks();
+            
+            if (tasks.length === 0) {
+                taskList.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <div class="empty-state-text">暂无任务，添加一个吧！</div>
+                    </div>
+                `;
+            } else {
+                // 使用 DocumentFragment 提高性能
+                const fragment = document.createDocumentFragment();
+                
+                tasks.forEach(task => {
+                    const li = document.createElement('li');
+                    const priority = task.priority || 'medium';
+                    li.className = `task-item priority-${priority}${task.completed ? ' completed' : ''}`;
+                    li.dataset.id = task.id;
+                    
+                    li.innerHTML = `
+                        <input type="checkbox" class="task-checkbox" ${task.completed ? 'checked' : ''}>
+                        <span class="priority-badge ${priority}">${priorityLabels[priority]}</span>
+                        <span class="task-text">${escapeHtml(task.text)}</span>
+                        <div class="task-actions">
+                            <button class="edit-btn">编辑</button>
+                            <button class="delete-btn">删除</button>
+                        </div>
+                    `;
+                    
+                    fragment.appendChild(li);
+                });
+                
+                taskList.innerHTML = '';
+                taskList.appendChild(fragment);
+            }
+            
+            updateStats();
+        }
+
+        // HTML转义，防止XSS攻击
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // 添加任务
+        function addTask() {
+            const text = taskInput.value.trim();
+            
+            // 验证任务内容长度
+            if (text.length < 1 || text.length > 50) {
+                taskInput.focus();
+                return;
+            }
+            
+            const tasks = loadTasks();
+            const newTask = {
+                id: generateId(),
+                text: text,
+                priority: prioritySelect.value,
+                completed: false,
+                createdAt: Date.now()
+            };
+            
+            tasks.unshift(newTask); // 新任务添加到顶部
+            saveTasks(tasks);
+            renderTasks();
+            
+            // 清空输入框并聚焦
+            taskInput.value = '';
+            updateCharCount();
+            taskInput.focus();
+        }
+
+        // 切换任务完成状态
+        function toggleTask(id) {
+            const tasks = loadTasks();
+            const task = tasks.find(t => t.id === id);
+            
+            if (task) {
+                task.completed = !task.completed;
+                saveTasks(tasks);
+                renderTasks();
+            }
+        }
+
+        // 显示删除确认对话框
+        function showDeleteModal(id) {
+            taskToDelete = id;
+            modalOverlay.classList.add('active');
+        }
+
+        // 隐藏删除确认对话框
+        function hideDeleteModal() {
+            taskToDelete = null;
+            clearCompletedMode = false;
+            clearAllMode = false;
+            modalTitle.textContent = '确定要删除这个任务吗？';
+            modalOverlay.classList.remove('active');
+        }
+
+        // 删除任务
+        function deleteTask() {
+            if (clearAllMode) {
+                // 清空所有任务
+                saveTasks([]);
+                renderTasks();
+                hideDeleteModal();
+                return;
+            }
+            
+            if (clearCompletedMode) {
+                // 清空所有已完成任务
+                const tasks = loadTasks();
+                const filteredTasks = tasks.filter(t => !t.completed);
+                saveTasks(filteredTasks);
+                renderTasks();
+                hideDeleteModal();
+                return;
+            }
+            
+            if (!taskToDelete) return;
+            
+            const tasks = loadTasks();
+            const filteredTasks = tasks.filter(t => t.id !== taskToDelete);
+            saveTasks(filteredTasks);
+            renderTasks();
+            hideDeleteModal();
+        }
+
+        // 清空已完成任务
+        function clearCompleted() {
+            const tasks = loadTasks();
+            const count = tasks.filter(t => t.completed).length;
+            if (count === 0) return;
+            
+            clearCompletedMode = true;
+            modalTitle.textContent = `确定要清空 ${count} 个已完成的任务吗？`;
+            modalOverlay.classList.add('active');
+        }
+
+        // 清空全部任务
+        function clearAll() {
+            const tasks = loadTasks();
+            if (tasks.length === 0) return;
+            
+            clearAllMode = true;
+            modalTitle.textContent = `确定要清空全部 ${tasks.length} 个任务吗？此操作不可恢复！`;
+            modalOverlay.classList.add('active');
+        }
+
+        // 显示编辑对话框
+        function showEditModal(id) {
+            const tasks = loadTasks();
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            
+            taskToEdit = id;
+            editInput.value = task.text;
+            editPrioritySelect.value = task.priority || 'medium';
+            editModalOverlay.classList.add('active');
+            editInput.focus();
+        }
+
+        // 隐藏编辑对话框
+        function hideEditModal() {
+            taskToEdit = null;
+            editInput.value = '';
+            editModalOverlay.classList.remove('active');
+        }
+
+        // 保存编辑
+        function saveTaskEdit() {
+            if (!taskToEdit) return;
+            
+            const text = editInput.value.trim();
+            if (text.length < 1 || text.length > 50) {
+                editInput.focus();
+                return;
+            }
+            
+            const tasks = loadTasks();
+            const task = tasks.find(t => t.id === taskToEdit);
+            if (task) {
+                task.text = text;
+                task.priority = editPrioritySelect.value;
+                saveTasks(tasks);
+                renderTasks();
+            }
+            
+            hideEditModal();
+        }
+
+        // 更新字符计数
+        function updateCharCount() {
+            const length = taskInput.value.length;
+            charCount.textContent = `${length} / 50`;
+            
+            charCount.classList.remove('warning', 'valid');
+            if (length === 0) {
+                // 默认样式
+            } else if (length < 1 || length > 50) {
+                charCount.classList.add('warning');
+            } else {
+                charCount.classList.add('valid');
+            }
+        }
+
+        // 事件监听
+        addBtn.addEventListener('click', addTask);
+
+        taskInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addTask();
+            }
+        });
+
+        taskInput.addEventListener('input', updateCharCount);
+
+        // 任务列表事件委托
+        taskList.addEventListener('click', (e) => {
+            const taskItem = e.target.closest('.task-item');
+            if (!taskItem) return;
+            
+            const id = taskItem.dataset.id;
+            
+            if (e.target.classList.contains('task-checkbox')) {
+                toggleTask(id);
+            } else if (e.target.classList.contains('delete-btn')) {
+                showDeleteModal(id);
+            } else if (e.target.classList.contains('edit-btn')) {
+                showEditModal(id);
+            }
+        });
+
+        // 对话框事件
+        cancelDelete.addEventListener('click', hideDeleteModal);
+        confirmDelete.addEventListener('click', deleteTask);
+        
+        // 清空按钮事件
+        clearCompletedBtn.addEventListener('click', clearCompleted);
+        clearAllBtn.addEventListener('click', clearAll);
+        
+        // 编辑对话框事件
+        cancelEdit.addEventListener('click', hideEditModal);
+        saveEdit.addEventListener('click', saveTaskEdit);
+        
+        editInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                saveTaskEdit();
+            }
+        });
+        
+        editModalOverlay.addEventListener('click', (e) => {
+            if (e.target === editModalOverlay) {
+                hideEditModal();
+            }
+        });
+        
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                hideDeleteModal();
+            }
+        });
+
+        // ESC键关闭对话框
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                if (modalOverlay.classList.contains('active')) {
+                    hideDeleteModal();
+                }
+                if (editModalOverlay.classList.contains('active')) {
+                    hideEditModal();
+                }
+            }
+        });
+
+        // 初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTasks();
+            taskInput.focus();
+        });
+    </script>
+</body>
+</html>
