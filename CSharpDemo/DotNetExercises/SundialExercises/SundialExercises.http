@@ -1,6 +1,0 @@
-@SundialExercises_HostAddress = http://localhost:5023
-
-GET {{SundialExercises_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

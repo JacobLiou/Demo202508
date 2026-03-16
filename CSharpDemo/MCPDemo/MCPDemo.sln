@@ -1,0 +1,30 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCPDemoServer", "MCPDemoServer\MCPDemoServer.csproj", "{7944356E-AF46-9DB7-96E6-4141E4E6E7FE}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MCPGitHubDemo", "MCPGitHubDemo\MCPGitHubDemo.csproj", "{BE97D60E-1A69-237A-944F-E361D10F0799}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{7944356E-AF46-9DB7-96E6-4141E4E6E7FE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{7944356E-AF46-9DB7-96E6-4141E4E6E7FE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{7944356E-AF46-9DB7-96E6-4141E4E6E7FE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{7944356E-AF46-9DB7-96E6-4141E4E6E7FE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BE97D60E-1A69-237A-944F-E361D10F0799}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BE97D60E-1A69-237A-944F-E361D10F0799}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BE97D60E-1A69-237A-944F-E361D10F0799}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BE97D60E-1A69-237A-944F-E361D10F0799}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {CFD78E3B-5364-4E3D-B9DE-78627F2B433F}
+	EndGlobalSection
+EndGlobal
